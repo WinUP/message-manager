@@ -1,5 +1,4 @@
 import { AdvancedTree, isMatch } from '@dlcs/tools';
-import { OnDestroy } from '@angular/core';
 import { includes } from 'lodash';
 
 import { Listener, MessageService } from '../message';
@@ -12,7 +11,7 @@ import { AutoRegister } from './AutoRegister';
  * @description Base comonent can provide state management, quick access to server module, runtime reflection, etc.
  */
 // @dynamic
-export abstract class BaseComponent implements OnDestroy {
+export abstract class BaseComponent {
     private _rootListener: AdvancedTree<Listener>;
     private _currentState: string = '';
     private _stateListeners: { from: RegExp, to: RegExp, handler: (from: string, to: string) => void }[] = [];
@@ -41,7 +40,10 @@ export abstract class BaseComponent implements OnDestroy {
         this.autowire();
     }
 
-    public ngOnDestroy(): void {
+    /**
+     * Destroy this component's message listeners
+     */
+    public destroy(): void {
         this._rootListener.destroy();
     }
 

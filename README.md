@@ -256,6 +256,7 @@ Base structure provides ```BaseComponent```, which is an advanced component incl
 |-|:-|:-|-:|
 | ```state: string``` | ```''``` | Get or set component's state | ```this.state = 'after_load'``` |
 | ```onState: (from: RawRegularExpression, to: RawRegularExpression, handler: (from: string, to: string) => void): void``` | | Add state listener | ```this.onState('', /after_\\S+/g, (from, to) => console.log(to))``` |
+| ```destroy(): void``` | | Destroy component's root listener | ```this.destroy()``` |
 | ```onMessage: (target: Listener \| AdvancedTree<Listener>): AdvancedTree<Listener>``` | | Add message listener | ```this.onMessage(this.messageService.listener.....)``` |
 | ```onResponse: (address: Nullable<RawRegularExpression> = null, addons: Nullable<{ key: Request.AddonType, value: RawRegularExpression }[]> = null, state: Nullable<RawRegularExpression> = null, handler: (data: Response.ResponseMetadata) => void, ...params: any[]): AdvancedTree<Listener>``` | | Add resource listener (only effect resource sent via message service) | ```this.onResponse(null, [{key: Request.AddonType.Tag, value: 'user_profile'}], null, (data) => console.log(data))``` |
 
