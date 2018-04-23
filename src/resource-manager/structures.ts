@@ -197,7 +197,7 @@ export class ResourceRequest {
      * Add params
      * @param params Params
      */
-    public param(params: { [key: string]: any }): this {
+    public param<T extends { [key: string]: any } = { [key: string]: any }>(params: T): this {
         Object.keys(params).forEach(v => {
             this._params[v] = params[v];
         });

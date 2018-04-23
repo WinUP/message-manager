@@ -37,7 +37,7 @@ export interface ResourceManagerConfigKeys {
 export class ResourceManager {
     private protocols: ResourceProtocol[] = [];
     private injectors: { timepoint: number, injector: RequestInjector }[] = [];
-    private static _config: SerializableNode = SerializableNode.create('resource_manager', undefined);
+    private static _config: SerializableNode = SerializableNode.create('ResourceManager', undefined);
     private static _configKeys: ResourceManagerConfigKeys = { response: { mask: '', tag: '' } };
 
     public static initialize(): void {
