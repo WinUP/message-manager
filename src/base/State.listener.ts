@@ -23,7 +23,9 @@ export interface StateListenerDefinition {
  */
 export function StateListener(input: StateListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target, `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, '/reflector/name')}`, {
+        Object.defineProperty(target,
+            `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
+        , {
             get: (): AutoRegister => ({
                 type: 'StateListener',
                 params: [input.from, input.to]

@@ -31,7 +31,9 @@ export interface MessageListenerDefinition {
  */
 export function MessageListener(input: MessageListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target, `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, '/reflector/name')}`, {
+        Object.defineProperty(target,
+            `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
+        , {
             get: (): AutoRegister => ({
                 type: 'MessageListener',
                 params: [

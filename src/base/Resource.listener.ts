@@ -31,7 +31,9 @@ export interface ResourceListenerDefinition {
  */
 export function ResourceListener(input: ResourceListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target, `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, '/reflector/name')}`, {
+        Object.defineProperty(target,
+            `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
+        , {
             get: (): AutoRegister => ({
                 type: 'ResourceListener',
                 params: [

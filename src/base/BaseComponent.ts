@@ -134,8 +134,9 @@ export abstract class BaseComponent {
      */
     protected onResponse<T>(address: string | RegExp | undefined, tags: (string | RegExp)[] | undefined, state: string | undefined,
         params: { [key: string]: any } | undefined, handler: (data: ResponseMetadata) => void): AdvancedTree<Listener> {
-        return this.onMessage(this.message.listener.for(SerializableNode.get<number>(ResourceManager.config, '/response/mask'))
-            .listen(SerializableNode.get<string>(ResourceManager.config, '/response/tag')).receiver(message => {
+        return this.onMessage(this.message.listener.for(
+            SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask))
+            .listen(SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)).receiver(message => {
                 const response: ResponseMetadata = message.value;
                 if (!isMatch(address, `${response.request.protocol}://${response.request.address}`)
                     || !isMatch(state, this._currentState)) {
