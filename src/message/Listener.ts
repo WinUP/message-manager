@@ -1,6 +1,5 @@
 import { createUUIDString, callStack, AdvancedTree } from '@dlcs/tools';
 import { Observable } from 'rxjs/Observable';
-import { includes } from 'lodash';
 
 import { MessageService } from './message.service';
 import { Message } from './Message';
@@ -73,7 +72,7 @@ export class Listener {
      * @param tag Message tag
      */
     public listen(tag: string): this {
-        if (!includes(this._tag, tag)) {
+        if (this._tag.indexOf(tag) < 0) {
             this._tag.push(tag);
         }
         return this;
@@ -102,7 +101,7 @@ export class Listener {
      * @param tag Message tag
      */
     public isAvailableFor(mask: number, tag: string | null): boolean {
-        return (this._mask & mask) !== 0 && (this._tag.length === 0 || !tag || includes(this._tag, tag));
+        return (this._mask & mask) !== 0 && (this._tag.length === 0 || !tag || this._tag.indexOf(tag) > -1);
     }
 
     /**

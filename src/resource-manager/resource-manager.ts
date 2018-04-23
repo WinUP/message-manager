@@ -1,11 +1,32 @@
+import { SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
 import { Observable } from 'rxjs/Observable';
 
 import { ResourceRequest, ResourceResponse, ResourceProtocol } from './structures';
 import { InjectorTimepoint, RequestInjector } from './injector/index';
 import { ResponseStatus, ResponseMetadata } from './response/index';
 import { MessageService } from '../message/message.service';
-import { Configuration } from '../Configuration';
 import { RequestMode } from './RequestMode';
+
+/**
+ * Configuration keys for BaseComponent
+ */
+export interface ResourceManagerConfigKeys {
+    /**
+     * Response and MessageService intergration configuration
+     */
+    response: {
+        /**
+         * Message mask
+         * @default 1
+         */
+        mask: string;
+        /**
+         * Message tag
+         * @default 'RESPONSE'
+         */
+        tag: string;
+    };
+}
 
 /**
  * Resource manager service
@@ -13,6 +34,14 @@ import { RequestMode } from './RequestMode';
 export class ResourceManager {
     private protocols: ResourceProtocol[] = [];
     private injectors: { timepoint: number, injector: RequestInjector }[] = [];
+    private static _config: SerializableNode = SerializableNode.create('resource_manager', undefined);
+    private static _configKeys: ResourceManagerConfigKeys = { response: { mask: '', tag: '' } };
+
+    public static initialize(): void {
+        autoname(ResourceManager._configKeys, '/', toPascalCase);
+        SerializableNode.set(ResourceManager.config, ResourceManager.configKeys.response.mask, 1);
+        SerializableNode.set(ResourceManager.config, ResourceManager.configKeys.response.tag, 'RESPONSE');
+    }
 
     public constructor(private messageService: MessageService) { }
 
@@ -21,6 +50,20 @@ export class ResourceManager {
      */
     public get request(): ResourceRequest {
         return new ResourceRequest(this);
+    }
+
+    /**
+     * Get configuration
+     */
+    public static get config(): SerializableNode {
+        return ResourceManager._config;
+    }
+
+    /**
+     * Get configuration keys
+     */
+    public static get configKeys(): Readonly<ResourceManagerConfigKeys> {
+        return ResourceManager._configKeys;
     }
 
     /**
@@ -66,13 +109,15 @@ export class ResourceManager {
                     const data = response.metadata;
                     data.responseData = v;
                     this.messageService.asyncMessage.mark(
-                        Configuration.resource.response.mask, Configuration.resource.response.tag
+                        SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
+                        SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
                     ).use<ResponseMetadata>(data).send();
                 }, e => {
                     const data = response.metadata;
                     data.responseData = e;
                     this.messageService.asyncMessage.mark(
-                        Configuration.resource.response.mask, Configuration.resource.response.tag
+                        SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
+                        SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
                     ).use<ResponseMetadata>(data).send();
                 });
             }
@@ -129,3 +174,5 @@ export class ResourceManager {
         }
     }
 }
+
+ResourceManager.initialize();

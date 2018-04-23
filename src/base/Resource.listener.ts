@@ -1,4 +1,5 @@
-import { Configuration } from '../Configuration';
+import { SerializableNode } from '@dlcs/tools';
+
 import { BaseComponent } from './BaseComponent';
 import { AutoRegister } from './AutoRegister';
 
@@ -30,7 +31,7 @@ export interface ResourceListenerDefinition {
  */
 export function ResourceListener(input: ResourceListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target, `${propertyKey}${Configuration.base.reflectorName}`, {
+        Object.defineProperty(target, `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, '/reflector/name')}`, {
             get: (): AutoRegister => ({
                 type: 'ResourceListener',
                 params: [

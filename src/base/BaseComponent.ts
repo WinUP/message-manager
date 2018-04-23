@@ -1,20 +1,61 @@
-import { AdvancedTree, isMatch } from '@dlcs/tools';
-import { includes } from 'lodash';
+import { AdvancedTree, isMatch, SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
 
+import { ResponseMetadata, ResourceManager } from '../resource-manager';
 import { Listener, MessageService } from '../message';
-import { Response, Request } from '../resource-manager';
-import { Configuration } from '../Configuration';
 import { AutoRegister } from './AutoRegister';
 
 /**
+ * Configuration keys for BaseComponent
+ */
+export interface BaseComponentConfigKeys {
+    /**
+     * Default listener priority
+     * @default 100
+     */
+    priority: string;
+    /**
+     * Runtime reflector configuration
+     */
+    reflector: {
+        /**
+         * Reflector information object key suffix
+         * @default '$AutoRegisterMetadata'
+         */
+        name: string;
+    };
+}
+
+/**
  * Base component
- * @description Base comonent can provide state management, quick access to server module, runtime reflection, etc.
+ * @description Base comonent provides state management, services intergration, runtime reflection, etc.
  */
 // @dynamic
 export abstract class BaseComponent {
     private _rootListener: AdvancedTree<Listener>;
     private _currentState: string = '';
     private _stateListeners: { from: RegExp, to: RegExp, handler: (from: string, to: string) => void }[] = [];
+    private static _config: SerializableNode = SerializableNode.create('base_component', undefined);
+    private static _configKeys: BaseComponentConfigKeys = { priority: '', reflector: { name: '' } };
+
+    public static initialize(): void {
+        autoname(BaseComponent._configKeys, '/', toPascalCase);
+        SerializableNode.set(BaseComponent.config, BaseComponent.configKeys.priority, 100);
+        SerializableNode.set(BaseComponent.config, BaseComponent.configKeys.reflector.name, '$AutoRegisterMetadata');
+    }
+
+    /**
+     * Get configuration
+     */
+    public static get config(): SerializableNode {
+        return BaseComponent._config;
+    }
+
+    /**
+     * Get configuration keys
+     */
+    public static get configKeys(): Readonly<BaseComponentConfigKeys> {
+        return BaseComponent._configKeys;
+    }
 
     /**
      * Get or set component's state
@@ -33,7 +74,7 @@ export abstract class BaseComponent {
     protected constructor(protected messageService: MessageService, priority?: number) {
         this._rootListener = this.messageService.listener
             .for(0)
-            .hasPriority(priority || Configuration.base.listenerPriority)
+            .hasPriority(priority || SerializableNode.get<number>(BaseComponent.config, BaseComponent.configKeys.priority))
             .listenAll()
             .receiver(m => m)
             .register();
@@ -83,10 +124,10 @@ export abstract class BaseComponent {
      * @param params Parameters as filter (All should be in one resource's param list to target it)
      */
     protected onResponse<T>(address: string | RegExp | undefined, tags: (string | RegExp)[] | undefined, state: string | undefined,
-        params: { [key: string]: any } | undefined, handler: (data: Response.ResponseMetadata) => void): AdvancedTree<Listener> {
-        return this.onMessage(this.messageService.listener.for(Configuration.resource.response.mask)
-            .listen(Configuration.resource.response.tag).receiver(message => {
-                const response: Response.ResponseMetadata = message.value;
+        params: { [key: string]: any } | undefined, handler: (data: ResponseMetadata) => void): AdvancedTree<Listener> {
+        return this.onMessage(this.messageService.listener.for(SerializableNode.get<number>(ResourceManager.config, '/response/mask'))
+            .listen(SerializableNode.get<string>(ResourceManager.config, '/response/tag')).receiver(message => {
+                const response: ResponseMetadata = message.value;
                 if (!isMatch(address, `${response.request.protocol}://${response.request.address}`)
                     || !isMatch(state, this._currentState)) {
                     return message;
@@ -109,16 +150,18 @@ export abstract class BaseComponent {
             if (target.constructor === BaseComponent.constructor) { break; }
             props = props.concat(Object.getOwnPropertyNames(target));
         } while (target = Object.getPrototypeOf(target));
+        const reflectorName = SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name);
         return props
-            .filter(v => v.endsWith(Configuration.base.reflectorName))
-            .map(v => v.slice(0, v.length - Configuration.base.reflectorName.length));
+            .filter(v => v.endsWith(reflectorName))
+            .map(v => v.slice(0, v.length - reflectorName.length));
     }
 
     private autowire(): void {
         const functionNames: string[] = this.findAutowiredFunctions(this);
         for (let i = 0; i < functionNames.length; i++) {
             const key = functionNames[i];
-            const register: AutoRegister = (this as any)[`${key}${Configuration.base.reflectorName}`];
+            const register: AutoRegister =
+                (this as any)[`${key}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`];
             if (!register) {
                 throw TypeError(`Cannot register ${key}: Function has no register data defined by any *Listener annotation`);
             }
@@ -154,3 +197,5 @@ export abstract class BaseComponent {
         }
     }
 }
+
+BaseComponent.initialize();

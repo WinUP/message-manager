@@ -1,6 +1,5 @@
 import { AdvancedTree, InstantDebugger, AdvancedTreeNodeStatus, isValueAvailable } from '@dlcs/tools';
 import { Observable } from 'rxjs/Observable';
-import { includes } from 'lodash';
 
 import {
     Message, SynchronizedMessage, AsynchronizedMessage, SharedMessage
@@ -68,7 +67,7 @@ export class MessageService {
             this.worker = new SharedWorker(typeof this.crossShareFile === 'string' ? this.crossShareFile : this.crossShareFile());
             this.worker.port.onmessage = message => {
                 const data: MessageMetadata = message.data;
-                if (includes(this.needSkipId, data.id)) {
+                if (this.needSkipId.indexOf(data.id) > -1) {
                     this.needSkipId.splice(this.needSkipId.indexOf(data.id), 1);
                     return;
                 }
