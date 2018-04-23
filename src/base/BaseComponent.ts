@@ -33,6 +33,7 @@ export interface BaseComponentConfigKeys {
 export abstract class BaseComponent {
     private _rootListener: AdvancedTree<Listener>;
     private _currentState: string = '';
+    private _message: MessageService;
     private _stateListeners: { from: RegExp, to: RegExp, handler: (from: string, to: string) => void }[] = [];
     private static _config: SerializableNode = SerializableNode.create('base_component', undefined);
     private static _configKeys: BaseComponentConfigKeys = { priority: '', reflector: { name: '' } };
@@ -71,8 +72,16 @@ export abstract class BaseComponent {
         this._currentState = value;
     }
 
-    protected constructor(protected messageService: MessageService, priority?: number) {
-        this._rootListener = this.messageService.listener
+    /**
+     * Get message service's instance
+     */
+    public get message(): MessageService {
+        return this._message;
+    }
+
+    protected constructor(messageService: MessageService, priority?: number) {
+        this._message = messageService;
+        this._rootListener = this.message.listener
             .for(0)
             .hasPriority(priority || SerializableNode.get<number>(BaseComponent.config, BaseComponent.configKeys.priority))
             .listenAll()
@@ -125,7 +134,7 @@ export abstract class BaseComponent {
      */
     protected onResponse<T>(address: string | RegExp | undefined, tags: (string | RegExp)[] | undefined, state: string | undefined,
         params: { [key: string]: any } | undefined, handler: (data: ResponseMetadata) => void): AdvancedTree<Listener> {
-        return this.onMessage(this.messageService.listener.for(SerializableNode.get<number>(ResourceManager.config, '/response/mask'))
+        return this.onMessage(this.message.listener.for(SerializableNode.get<number>(ResourceManager.config, '/response/mask'))
             .listen(SerializableNode.get<string>(ResourceManager.config, '/response/tag')).receiver(message => {
                 const response: ResponseMetadata = message.value;
                 if (!isMatch(address, `${response.request.protocol}://${response.request.address}`)
@@ -175,7 +184,7 @@ export abstract class BaseComponent {
                     metadata.call(this, from , to);
                 });
             } else if (register.type === 'MessageListener') {
-                let listener = this.messageService.listener.for(register.params[0]);
+                let listener = this.message.listener.for(register.params[0]);
                 if (register.params[1] != null) {
                     listener = listener.hasPriority(register.params[1]);
                 }

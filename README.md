@@ -266,6 +266,7 @@ Base structure provides ```BaseComponent```, which is an advanced component incl
 | Field name | Default value | Usage        | Example |
 |-|:-|:-|-:|
 | ```state: string``` | ```''``` | Get or set component's state | ```this.state = 'after_load'``` |
+| ```message: MessageService``` | | Get message service's instance | ```const service = this.message``` |
 | ```onState: (from: RawRegularExpression, to: RawRegularExpression, handler: (from: string, to: string) => void): void``` | | Add state listener | ```this.onState('', /after_\\S+/g, (from, to) => console.log(to))``` |
 | ```destroy(): void``` | | Destroy component's root listener | ```this.destroy()``` |
 | ```onMessage: (target: Listener \| AdvancedTree<Listener>): AdvancedTree<Listener>``` | | Add message listener | ```this.onMessage(this.messageService.listener.....)``` |
@@ -275,7 +276,7 @@ Please ignore all functions, only remember ```state```. We create a runtime refl
 
 ```typescript
 export class TestComponent extends BaseComponent {
-    public constructor(protected messageService: MessageService) {
+    public constructor(messageService: MessageService) {
         super(messageService);
     }
 
