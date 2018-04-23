@@ -230,19 +230,30 @@ public abstract requestSync(request: ResourceRequest, injector?: (data: any, tim
 
 ### Configuration
 
-Remember to set  ```Configuration.resource.response.mask``` and ```Configuration.resource.response.tag``` before send and request via resource manaager or register any resource listener.
+```ResourceManager``` and ```BaseComponent``` both have ```config``` field (a [SerializableNode](https://github.com/WinUP/dlcs-tools#serializablenode)) and ```configKeys``` field (indicate names in ```config```). Use ways for ```SerializableNode``` to change them.
+
+Configurations for ```ResourceManager```:
 
 | Name | Default value | Usage |
 |-|:-|:-|
-| ```Configuration.resource.response.mask``` | ```1``` | Message mask of response |
-| ```Configuration.resource.response.tag``` | ```'RESPONSE'``` | Message tag of response |
-| ```Configuration.resource.storaghe.root``` | ```'dlcs'``` | Root object name for localStorage |
-| ```Configuration.resource.remote.defaultServer``` | ```null``` | Default remote server address, must set before use ```remote``` protocol |
-| ```Configuration.resource.remote.defaultResponseType``` | ```null``` | Default remote response type |
-| ```Configuration.resource.remote.defaultContentType``` | ```null``` | Default remote content-type |
-| ```Configuration.resource.remote.assetsDirectory``` | ```null``` | Assets url for require asset files, must set before use ```assets``` protocol |
-| ```Configuration.base.listenerPriority``` | ```100``` | Priority for root message listener of each base component |
-| ```Configuration.base.reflectorName``` | ```'$AutoRegisterMetadata'``` | Autowired function postfix |
+| ```response.mask``` | ```1``` | Message mask of response |
+| ```response.tag``` | ```'RESPONSE'``` | Message tag of response |
+
+Configurations for ```BaseComponent```:
+
+| Name | Default value | Usage |
+|-|:-|:-|
+| ```priority``` | ```100``` | Priority for root message listener of each base component |
+| ```reflector.name``` | ```'$AutoRegisterMetadata'``` | Autowired function postfix |
+
+For example, change ```reflector.name``` for ```BaseComponent```:
+
+```typescript
+SerializableNode.set(BaseComponent.config, BaseComponent.configKeys.reflector.name, 'some_new_value');
+const newValue = SerializableNode.get(BaseComponent.config, BaseComponent.configKeys.reflector.name); // some_new_value
+```
+
+**Attention: new value only affects new component and new requests.**
 
 ### Base Structure
 

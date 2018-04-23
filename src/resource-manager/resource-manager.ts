@@ -1,5 +1,8 @@
 import { SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
+import { catchError } from 'rxjs/operators/catchError';
 import { Observable } from 'rxjs/Observable';
+import { mergeMap } from 'rxjs/operators/mergeMap';
+import { of } from 'rxjs/observable/of';
 
 import { ResourceRequest, ResourceResponse, ResourceProtocol } from './structures';
 import { InjectorTimepoint, RequestInjector } from './injector/index';
@@ -93,15 +96,15 @@ export class ResourceManager {
                 return response;
             }
         } else {
-            response.responseData = request.provider.request(request, injectorCallback).mergeMap(data => {
+            response.responseData = request.provider.request(request, injectorCallback).pipe(mergeMap(data => {
                 response.to(ResponseStatus.Succeed);
                 const result = this.callInjectors(request, response, data, InjectorTimepoint.OnSucceed);
-                return result instanceof Observable ? result : Observable.of(result);
-            }).catch(error => {
+                return result instanceof Observable ? result : of(result);
+            }), catchError(error => {
                 response.to(ResponseStatus.Failed);
                 const result = this.callInjectors(request, response, error, InjectorTimepoint.OnFailed);
-                return result instanceof Observable ? result : Observable.of(result);
-            });
+                return result instanceof Observable ? result : of(result);
+            }));
             if (mode !== RequestMode.ViaMessageService) {
                 return response;
             } else {

@@ -2,7 +2,9 @@ language: node_js
 node_js:
   - '9'
 install: npm install
-script: npm run tsc
+script:
+  - npm run tsc
+  - npm run test
 deploy:
   provider: npm
   email: l.gholoi@outlook.com
