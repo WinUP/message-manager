@@ -1,4 +1,4 @@
-export interface AutoRegister {
-    type: 'ResourceListener' | 'StateListener' | 'MessageListener';
+export interface IAutoRegister {
+    type: 'ResourceListener' | 'StateListener' | 'MessageListener' | 'CacheListener';
     params: any[];
 }

@@ -1,12 +1,12 @@
 import { SerializableNode } from '@dlcs/tools';
 
 import { BaseComponent } from './BaseComponent';
-import { AutoRegister } from './AutoRegister';
+import { IAutoRegister } from './AutoRegister';
 
 /**
  * Message listener parameters
  */
-export interface MessageListenerDefinition {
+export interface IMessageListenerDefinition {
     /**
      * Message mask
      */
@@ -29,12 +29,12 @@ export interface MessageListenerDefinition {
  * Message listener
  * @param input Parameters
  */
-export function MessageListener(input: MessageListenerDefinition) {
+export function MessageListener(input: IMessageListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
         Object.defineProperty(target,
             `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
         , {
-            get: (): AutoRegister => ({
+            get: (): IAutoRegister => ({
                 type: 'MessageListener',
                 params: [
                     input.mask,

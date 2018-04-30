@@ -4,7 +4,7 @@ import { Observable } from 'rxjs/Observable';
 import {
     Message, SynchronizedMessage, AsynchronizedMessage, SharedMessage
 } from './Message';
-import { MessageMetadata } from './MessageMetadata';
+import { IMessageMetadata } from './MessageMetadata';
 import { Listener } from './Listener';
 
 /**
@@ -66,7 +66,7 @@ export class MessageService {
         if (!this.worker) {
             this.worker = new SharedWorker(typeof this.crossShareFile === 'string' ? this.crossShareFile : this.crossShareFile());
             this.worker.port.onmessage = message => {
-                const data: MessageMetadata = message.data;
+                const data: IMessageMetadata = message.data;
                 if (this.needSkipId.indexOf(data.id) > -1) {
                     this.needSkipId.splice(this.needSkipId.indexOf(data.id), 1);
                     return;
@@ -222,7 +222,7 @@ export class MessageService {
     }
 
     private sendCrossShare(data: Message): void {
-        if (this.crossShare && this.worker && !data.isCrossShare) {
+        if (this.crossShare && this.worker && !data.isCrossShare && !data.isIgnoreCrossShare) {
             const crossData = data.metadata;
             this.needSkipId.push(crossData.id);
             try {

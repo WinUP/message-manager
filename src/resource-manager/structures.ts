@@ -2,8 +2,8 @@ import { Observable } from 'rxjs/Observable';
 import { isMatch } from '@dlcs/tools';
 
 import { InjectorTimepoint } from './injector/InjectorTimepoint';
-import { ResponseMetadata } from './response/ResponseMetadata';
-import { RequestMetadata } from './request/RequestMetadata';
+import { IResponseMetadata } from './response/ResponseMetadata';
+import { IRequestMetadata } from './request/RequestMetadata';
 import { ResourceManager } from './resource-manager';
 import { ResponseStatus } from './response/ResponseStatus';
 import { RequestType } from './request/RequestType';
@@ -113,7 +113,7 @@ export class ResourceRequest {
     /**
      * Get request's metadata
      */
-    public get metadata(): RequestMetadata {
+    public get metadata(): IRequestMetadata {
         return {
             protocol: this.protocol,
             address: this.address,
@@ -129,7 +129,7 @@ export class ResourceRequest {
      * @param request Resource request
      * @param tag Target tag
      */
-    public static hasTag(request: ResourceRequest | RequestMetadata, tag: string | RegExp): boolean {
+    public static hasTag(request: ResourceRequest | IRequestMetadata, tag: string | RegExp): boolean {
         return request.tags.some(v => isMatch(tag, v));
     }
 
@@ -138,7 +138,7 @@ export class ResourceRequest {
      * @param request Resource request
      * @param name Target param
      */
-    public static findParam<T>(request: ResourceRequest | RequestMetadata, name: string): T | undefined {
+    public static findParam<T>(request: ResourceRequest | IRequestMetadata, name: string): T | undefined {
         return request.params[name];
     }
 
@@ -268,7 +268,7 @@ export class ResourceResponse<T> {
     /**
      * Get response's metadata
      */
-    public get metadata(): ResponseMetadata {
+    public get metadata(): IResponseMetadata {
         return {
             request: this.request.metadata,
             status: this.status,

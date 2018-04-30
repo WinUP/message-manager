@@ -1,14 +1,14 @@
-import { RequestMetadata } from '../request/RequestMetadata';
+import { IRequestMetadata } from '../request/RequestMetadata';
 import { ResponseStatus } from './ResponseStatus';
 
 /**
  * Response metadata
  */
-export interface ResponseMetadata<T = any> {
+export interface IResponseMetadata<T = any> {
     /**
      * Raw request's metadata
      */
-    request: Readonly<RequestMetadata>;
+    request: Readonly<IRequestMetadata>;
     /**
      * Status
      */

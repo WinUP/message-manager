@@ -1,6 +1,21 @@
-var { BaseComponent, ResourceManager } = require('./dist');
+var { BaseComponent, ResourceManager, MessageService, MemoryCache } = require('./dist');
 
-console.log(BaseComponent.configKeys);
-console.log(JSON.stringify(BaseComponent.config));
-console.log(JSON.stringify(ResourceManager.config));
-console.log(JSON.stringify(ResourceManager.configKeys));
+const message = new MessageService();
+
+class TestComponent extends BaseComponent {
+    constructor() {
+        super(message);
+        this.onMessage(message.listener.for(1).listenAll().receiver(message => {
+            console.log(message);
+            return message;
+        }));
+    }
+}
+
+const test = new TestComponent();
+const cache = new MemoryCache(message);
+
+console.log(cache.has('test'));
+cache.set('test', 'value');
+console.log(cache.get('test'));
+

@@ -1,13 +1,14 @@
 import { AdvancedTree, isMatch, SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
 
-import { ResponseMetadata, ResourceManager } from '../resource-manager';
+import { IResponseMetadata, ResourceManager } from '../resource-manager';
+import { MemoryCache, IMemoryCacheMessage } from '../memory-cache/memory-cache';
 import { Listener, MessageService } from '../message';
-import { AutoRegister } from './AutoRegister';
+import { IAutoRegister } from './AutoRegister';
 
 /**
  * Configuration keys for BaseComponent
  */
-export interface BaseComponentConfigKeys {
+export interface IBaseComponentConfigKeys {
     /**
      * Default listener priority
      * @default 100
@@ -29,14 +30,13 @@ export interface BaseComponentConfigKeys {
  * Base component
  * @description Base comonent provides state management, services intergration, runtime reflection, etc.
  */
-// @dynamic
 export abstract class BaseComponent {
     private _rootListener: AdvancedTree<Listener>;
     private _currentState: string = '';
     private _message: MessageService;
-    private _stateListeners: { from: RegExp, to: RegExp, handler: (from: string, to: string) => void }[] = [];
+    private _stateListeners: { from: string | RegExp, to: string | RegExp, handler: (from: string, to: string) => void }[] = [];
     private static _config: SerializableNode = SerializableNode.create('base_component', undefined);
-    private static _configKeys: BaseComponentConfigKeys = { priority: '', reflector: { name: '' } };
+    private static _configKeys: IBaseComponentConfigKeys = { priority: '', reflector: { name: '' } };
 
     public static initialize(): void {
         autoname(BaseComponent._configKeys, '/', toPascalCase);
@@ -44,7 +44,7 @@ export abstract class BaseComponent {
         SerializableNode.set(BaseComponent.config, BaseComponent.configKeys.reflector.name, '$AutoRegisterMetadata');
     }
 
-    /**
+    /**b
      * Get configuration
      */
     public static get config(): SerializableNode {
@@ -54,7 +54,7 @@ export abstract class BaseComponent {
     /**
      * Get configuration keys
      */
-    public static get configKeys(): Readonly<BaseComponentConfigKeys> {
+    public static get configKeys(): Readonly<IBaseComponentConfigKeys> {
         return BaseComponent._configKeys;
     }
 
@@ -65,7 +65,7 @@ export abstract class BaseComponent {
         return this._currentState;
     } public set state(value: string) {
         this._stateListeners.forEach(listener => {
-            if (listener.from.test(this._currentState) && listener.to.test(value)) {
+            if (isMatch(listener.from, this._currentState) && isMatch(listener.to, this._currentState)) {
                 listener.handler(this._currentState, value);
             }
         });
@@ -98,17 +98,27 @@ export abstract class BaseComponent {
     }
 
     /**
+     * Close this component's root listener
+     */
+    public closeRootListener(): void {
+        this._rootListener.enabled = false;
+    }
+
+    /**
+     * Open this component's root listener
+     */
+    public openRootListener(): void {
+        this._rootListener.enabled = true;
+    }
+
+    /**
      * Add state listener
      * @param from From state
      * @param to To state
      * @param handler Listener
      */
     protected onState(from: string | RegExp, to: string | RegExp, handler: (from: string, to: string) => void): void {
-        this._stateListeners.push({
-            from: new RegExp(from),
-            to: new RegExp(to),
-            handler: handler
-        });
+        this._stateListeners.push({ from: from, to: to, handler: handler });
     }
 
     /**
@@ -133,11 +143,11 @@ export abstract class BaseComponent {
      * @param params Parameters as filter (All should be in one resource's param list to target it)
      */
     protected onResponse<T>(address: string | RegExp | undefined, tags: (string | RegExp)[] | undefined, state: string | undefined,
-        params: { [key: string]: any } | undefined, handler: (data: ResponseMetadata) => void): AdvancedTree<Listener> {
+        params: { [key: string]: any } | undefined, handler: (data: IResponseMetadata) => void): AdvancedTree<Listener> {
         return this.onMessage(this.message.listener.for(
             SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask))
             .listen(SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)).receiver(message => {
-                const response: ResponseMetadata = message.value;
+                const response: IResponseMetadata = message.value;
                 if (!isMatch(address, `${response.request.protocol}://${response.request.address}`)
                     || !isMatch(state, this._currentState)) {
                     return message;
@@ -170,12 +180,12 @@ export abstract class BaseComponent {
         const functionNames: string[] = this.findAutowiredFunctions(this);
         for (let i = 0; i < functionNames.length; i++) {
             const key = functionNames[i];
-            const register: AutoRegister =
+            const register: IAutoRegister =
                 (this as any)[`${key}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`];
             if (!register) {
                 throw TypeError(`Cannot register ${key}: Function has no register data defined by any *Listener annotation`);
             }
-            const metadata = (this as any)[key];
+            const metadata: Function = (this as any)[key];
             if (register.type === 'ResourceListener') {
                 this.onResponse(register.params[0], register.params[1], register.params[2], register.params[3], data => {
                     metadata.call(this, data);
@@ -201,6 +211,17 @@ export abstract class BaseComponent {
                     if (tester.test(this._currentState)) {
                         message = metadata.call(this, message);
                     }
+                    return message;
+                }));
+            } else if (register.type === 'CacheListener') {
+                this.onMessage(this.message.listener.for(
+                    SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.mask)
+                ).listen(
+                    SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.tag)
+                ).receiver(message => {
+                    const data: IMemoryCacheMessage = message.value;
+                    if (!isMatch(register.params[0], data.key)) { return message; }
+                    metadata.call(this, data.key, data.old, data.new);
                     return message;
                 }));
             }

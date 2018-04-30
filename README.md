@@ -8,7 +8,7 @@ Core module includes two services: message service and resource manager. It prov
 ### Message Service
 
 ```typescript
-import { MessageService, SynchronizedMessage, AsynchronizedMessage, Listener, MessageMetadata } from '@dlcs/core';
+import { MessageService, SynchronizedMessage, AsynchronizedMessage, Listener, IMessageMetadata } from '@dlcs/core';
 ```
 
 Message service is an event-based message queue. Component can register listeners or send messages to it. Message service will broadcast all messages to every listener, also listener has filters to indicate which kind of message should be delivered. Message service can let all components send and get data from others without parent-child relationship, can raise events with customized content, generally also handles all XHR responses from server.
@@ -61,12 +61,14 @@ There are three kinds of message: ```SynchronizedMessage```, ```AsynchronizedMes
 | ```mask: number``` | ```0``` | Get message's mask | ```const mask = message.mask``` |
 | ```asynchronized: boolean``` | Depends of message type | Indicate if this message is asynchronized | ```const asynchronized = message.asynchronized``` |
 | ```isCrossShare: boolean``` | Depends of message type | Indicate if this message is synchronized | ```const isCrossShare = message.isCrossShare``` |
-| ```metadata: MessageMetadata``` | Generate in each call | Get message's metadata | ```const metadata = message.metadata``` |
+| ```isLazyShare: boolean``` | ```false``` | Indicate if lazy share is enabled | ```const isLazyShare = message.isLazyShare``` |
+| ```isIgnoreCrossShare: boolean``` | ```false``` | Indicate if cross share for this message is disabled | ```const isIgnoreCrossShare = message.isIgnoreCrossShare``` |
+| ```metadata: IMessageMetadata``` | Generate in each call | Get message's metadata | ```const metadata = message.metadata``` |
 | ```value: any``` | | Get message's content | ```const value = message.value``` |
 | ```mark(mask: number, tag: string): this``` | | Set message's mask and tag | ```message.mark(0B0010, 'RESPONSE')``` |
 | ```use<T>(value: T)``` | | Set message's content | ```message.use<string>('123')``` |
 | ```enableLazyShare()``` | | Enable lazy mode in cross share | ```message.enableLazyShare()``` |
-| ```disableLazyShare()``` | | Disable lazy mode in cross share | ```message.disableLazyShare()``` |
+| ```ignoreCrossShare()``` | | Disable cross share for this message | ```message.ignoreCrossShare()``` |
 
 Lazy mode means cross share only starts when all suitable listener had processed message, regularly it starts immediately when get the message.
 
@@ -118,7 +120,7 @@ Cross share can not send function.
 As another important part of Deus Legem Creation System, resource manager provides an unique way to request or submit resources from or to server, local storage, assets forder, or any other place by register protocol providers. 
 
 ```typescript
-import { ResourceManager, Request, Response, Injector, ResourceProtocol, ResourceRequest, ResourceResponse } from '@dlcs/core';
+import { ResourceManager, ResourceProtocol, ResourceRequest, ResourceResponse } from '@dlcs/core';
 ```
 
 APIs for ```ResourceManager```:
@@ -129,7 +131,7 @@ APIs for ```ResourceManager```:
 | ```apply<T>(request: ResourceRequest, mode: RequestMode): void \| ResourceResponse<T \| Observable<T>>``` | | Send request | ```const result = resourcemanager.apply(request, RequestMode.ViaMessageService)``` |
 | ```callInjectors(request: ResourceRequest, response: ResourceResponse<any>, responseData: any, timepoint: Injector.InjectorTimepoint): any``` | | Call injectors | ```const data = resourcemanager.callInjectors(request, response, {}, Injector.InjectorTimepoint.BeforeSend)``` |
 | ```registerProtocol(protocol: ResourceProtocol): boolean``` | | Register resource protocol | ```resourcemanager.registerProtocol(protocol)``` |
-| ```findProtocol(protocol: string): Nullable<ResourceProtocol>``` | | Find resource protocol provider | ```const protocol = resourcemanager.findProtocol('http')``` |
+| ```findProtocol(protocol: string): ResourceProtocol | undefined``` | | Find resource protocol provider | ```const protocol = resourcemanager.findProtocol('http')``` |
 | ```inject(timepoint: number, injector: Injector.RequestInjector): void``` | | Register an injector | ```resourcemanager.inject(0B00110, (request, response, data, timepoint) => data)``` |
 
 Remember that ```apply()``` and ```callInjectors()``` are not recommend to access request or injectors. By using ```ResourceRequest```, there is another convenient way to communicate with resource manager.
@@ -186,10 +188,10 @@ In purpose to support the structured clone algorithm, sending via message servic
 | Field name | Default value | Usage        | Example |
 |-|:-|:-|-:|
 | ```responseData: T \| undefined``` | ```undefined``` | Get or set response's data | ```const data = response.responseData``` |
-| ```status: Response.ResponseStatus``` | ```Response.ResponseStatus.Preparing``` | Get response's status | ```const status = response.status``` |
+| ```status: ResponseStatus``` | ```ResponseStatus.Preparing``` | Get response's status | ```const status = response.status``` |
 | ```request: ReadOnly<ResourceRequest>``` | Given by constructor | Get original request | ```const request = response.request``` |
-| ```metadata: Response.ResponseMetadata``` | Generate in each call | Get response's metadata | ```const metadata = response.metadata``` |
-| ```to(status: Response.ResponseStatus): this``` | | Set response's status | ```response.to(Response.ResponseStatus.Succeed)``` |
+| ```metadata: IResponseMetadata``` | Generate in each call | Get response's metadata | ```const metadata = response.metadata``` |
+| ```to(status: ResponseStatus): this``` | | Set response's status | ```response.to(Response.ResponseStatus.Succeed)``` |
 
 Raw request is in ```request``` field, so response listeners can access raw request, use ```Addon``` or other parameters, address or else as filters to find target request.
 
@@ -228,9 +230,27 @@ public abstract requestSync(request: ResourceRequest, injector?: (data: any, tim
 
 ```InjectorTimepoint.BeforeSend``` and ```InjectorTimepoint.AfterSent``` should be called by provider itself. When face error, direct throw any error and resource manager will change response's status to failed automatically.
 
+### MemoryCache
+
+```MemoryCache``` can store data in an global storage (like Redux, but not same) and broadcast changes to application and application's other instances using cross share.
+
+```typescript
+import { MemoryCache, IMemoryCacheMessage } from '@dlcs/core';
+```
+
+APIs for ```MemoryCache```:
+
+| Field name | Default value | Usage        | Example |
+|-|:-|:-|-:|
+| ```inject(injector: (key: string, value: any) => any): void``` | | Register injector | ```memoryCache.inject((key, value) => value)``` |
+| ```get<T = any>(key: string): T | undefined``` | | Get cached item | ```const value = memoryCache.get<string>('key')``` |
+| ```set<T>(key: string, value: T, ignoreInjector?: boolean, share?: boolean): void``` | | Set cached item's value or create new cache item | ```memoryCache.set('key', 'value')``` |
+| ```has(key: string): boolean``` | | Indicate if cached item is not undefined | ```const value = memoryCache.has('key')``` |
+
+
 ### Configuration
 
-```ResourceManager``` and ```BaseComponent``` both have ```config``` field (a [SerializableNode](https://github.com/WinUP/dlcs-tools#serializablenode)) and ```configKeys``` field (indicate names in ```config```). Use ways for ```SerializableNode``` to change them.
+```ResourceManager```, ```BaseComponent``` and ```MemoryCache``` have ```config``` field (a [SerializableNode](https://github.com/WinUP/dlcs-tools#serializablenode)) and ```configKeys``` field (indicate names in ```config```). Use ways for ```SerializableNode``` to change them.
 
 Configurations for ```ResourceManager```:
 
@@ -245,6 +265,14 @@ Configurations for ```BaseComponent```:
 |-|:-|:-|
 | ```priority``` | ```100``` | Priority for root message listener of each base component |
 | ```reflector.name``` | ```'$AutoRegisterMetadata'``` | Autowired function postfix |
+
+Configurations for ```MemoryCache```:
+
+| Name | Default value | Usage |
+|-|:-|:-|
+| ```action.mask``` | ```1``` | Message mask of action |
+| ```action.tag``` | ```'ACTION'``` | Message tag of action |
+| ```action.shareTag``` | ```'MEMORY_CACHE_SHARE'``` | Message tag of data share request (normally only use by framework) |
 
 For example, change ```reflector.name``` for ```BaseComponent```:
 

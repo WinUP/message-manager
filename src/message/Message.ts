@@ -1,6 +1,6 @@
 import { createUUIDString } from '@dlcs/tools';
 
-import { MessageMetadata } from './MessageMetadata';
+import { IMessageMetadata } from './MessageMetadata';
 import { MessageService } from './message.service';
 
 /**
@@ -8,8 +8,9 @@ import { MessageService } from './message.service';
  */
 export abstract class Message {
     protected _fromCrossShare: boolean = false;
-    protected _lazyShare: boolean = false;
+    protected _ignoreCrossShare: boolean = false;
     protected _synchronized: boolean = false;
+    protected _lazyShare: boolean = false;
     protected _service: MessageService;
     protected _value: any;
     protected _mask: number = 0;
@@ -72,12 +73,10 @@ export abstract class Message {
     }
 
     /**
-     * Disable lazy share
-     * @description Lazy share only affects cross share. Normally message will send its copy immediately to
-     * cross share, when lazy share is enabling, it will send after all suitable listener processed itself.
+     * Disable cross share for this message, no matter what message service's configuration is.
      */
-    public disableLazyShare(): this {
-        this._lazyShare = false;
+    public ignoreCrossShare(): this {
+        this._ignoreCrossShare = true;
         return this;
     }
 
@@ -97,16 +96,24 @@ export abstract class Message {
     }
 
     /**
+     * Indicate if cross share for this message is disabled
+     */
+    public get isIgnoreCrossShare(): boolean {
+        return this._ignoreCrossShare;
+    }
+
+    /**
      * Get message's metadata
      */
-    public get metadata(): MessageMetadata {
+    public get metadata(): IMessageMetadata {
         return {
             id: this._id,
             sync: this._synchronized,
             lazy: this._lazyShare,
             mask: this._mask,
             tag: this._tag,
-            value: this._value
+            value: this._value,
+            ignore: this._ignoreCrossShare
         };
     }
 

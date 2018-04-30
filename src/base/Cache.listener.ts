@@ -6,29 +6,25 @@ import { IAutoRegister } from './AutoRegister';
 /**
  * State listener parameters
  */
-export interface IStateListenerDefinition {
+export interface ICacheListenerDefinition {
     /**
-     * From state
+     * Cache's key
      */
-    from: string | RegExp;
-    /**
-     * To state
-     */
-    to: string | RegExp;
+    key: string | RegExp;
 }
 
 /**
  * State listener
  * @param input Parameters
  */
-export function StateListener(input: IStateListenerDefinition) {
+export function CacheListener(input: ICacheListenerDefinition) {
     return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
         Object.defineProperty(target,
             `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
         , {
             get: (): IAutoRegister => ({
-                type: 'StateListener',
-                params: [input.from, input.to]
+                type: 'CacheListener',
+                params: [input.key]
             })
         });
     };

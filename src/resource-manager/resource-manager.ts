@@ -6,14 +6,14 @@ import { of } from 'rxjs/observable/of';
 
 import { ResourceRequest, ResourceResponse, ResourceProtocol } from './structures';
 import { InjectorTimepoint, RequestInjector } from './injector/index';
-import { ResponseStatus, ResponseMetadata } from './response/index';
+import { ResponseStatus, IResponseMetadata } from './response/index';
 import { MessageService } from '../message/message.service';
 import { RequestMode } from './RequestMode';
 
 /**
- * Configuration keys for BaseComponent
+ * Configuration keys for ResourceManager
  */
-export interface ResourceManagerConfigKeys {
+export interface IResourceManagerConfigKeys {
     /**
      * Response and MessageService intergration configuration
      */
@@ -38,7 +38,7 @@ export class ResourceManager {
     private protocols: ResourceProtocol[] = [];
     private injectors: { timepoint: number, injector: RequestInjector }[] = [];
     private static _config: SerializableNode = SerializableNode.create('ResourceManager', undefined);
-    private static _configKeys: ResourceManagerConfigKeys = { response: { mask: '', tag: '' } };
+    private static _configKeys: IResourceManagerConfigKeys = { response: { mask: '', tag: '' } };
 
     public static initialize(): void {
         autoname(ResourceManager._configKeys, '/', toPascalCase);
@@ -65,7 +65,7 @@ export class ResourceManager {
     /**
      * Get configuration keys
      */
-    public static get configKeys(): Readonly<ResourceManagerConfigKeys> {
+    public static get configKeys(): Readonly<IResourceManagerConfigKeys> {
         return ResourceManager._configKeys;
     }
 
@@ -114,14 +114,14 @@ export class ResourceManager {
                     this.messageService.asyncMessage.mark(
                         SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
                         SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
-                    ).use<ResponseMetadata>(data).send();
+                    ).use<IResponseMetadata>(data).send();
                 }, e => {
                     const data = response.metadata;
                     data.responseData = e;
                     this.messageService.asyncMessage.mark(
                         SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
                         SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
-                    ).use<ResponseMetadata>(data).send();
+                    ).use<IResponseMetadata>(data).send();
                 });
             }
         }

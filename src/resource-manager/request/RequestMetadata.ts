@@ -3,7 +3,7 @@ import { RequestType } from './RequestType';
 /**
  * Request metadata
  */
-export interface RequestMetadata {
+export interface IRequestMetadata {
     /**
      * Protocol
      */
