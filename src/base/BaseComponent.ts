@@ -152,7 +152,7 @@ export abstract class BaseComponent {
                     || !isMatch(state, this._currentState)) {
                     return message;
                 }
-                if (tags && tags.some(tag => response.request.tags.some(v => !isMatch(tag, v)))) {
+                if (tags && tags.some(tag => response.request.tags.every(v => !isMatch(tag, v)))) {
                     return message;
                 }
                 if (params && Object.keys(params).some(key => response.request.params[key] !== params[key])) {
