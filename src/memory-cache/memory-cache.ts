@@ -1,4 +1,5 @@
 import { SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
+import { cloneDeep } from 'lodash';
 
 import { MessageService } from '../message/message.service';
 
@@ -138,6 +139,13 @@ export class MemoryCache {
                 SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.shareTag)
             ).use<IMemoryCacheMessage>({ key: key, old: oldValue, new: value }).send();
         }
+    }
+
+    /**
+     * Dump storage (use lodash.cloneDeep)
+     */
+    public dump(): { [key: string]: any } {
+        return cloneDeep(this.store);
     }
 }
 

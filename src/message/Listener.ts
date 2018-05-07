@@ -23,7 +23,8 @@ export class Listener {
      */
     public static from(service: MessageService): Listener {
         const stack = callStack();
-        const target = new Listener(`[${stack[2].identifiers[0]}]${createUUIDString()}`, service);
+        const name = stack && stack.length > 1 ? stack[2].identifiers[0] : '';
+        const target = new Listener(`[${name}]${createUUIDString()}`, service);
         return target;
     }
 

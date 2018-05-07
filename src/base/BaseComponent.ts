@@ -44,7 +44,7 @@ export abstract class BaseComponent {
         SerializableNode.set(BaseComponent.config, BaseComponent.configKeys.reflector.name, '$AutoRegisterMetadata');
     }
 
-    /**b
+    /**
      * Get configuration
      */
     public static get config(): SerializableNode {
