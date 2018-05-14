@@ -1,4 +1,4 @@
-import { Observable } from 'rxjs/Observable';
+import { Observable } from 'rxjs';
 import { isMatch } from '@dlcs/tools';
 
 import { InjectorTimepoint } from './injector/InjectorTimepoint';
@@ -58,8 +58,6 @@ export class ResourceRequest {
     private _tags: string[] = [];
     private _params: { [key: string]: any } = {};
     private _type: RequestType = RequestType.Request;
-
-    public constructor(private _service: ResourceManager) { }
 
     /**
      * Get request's address
@@ -165,7 +163,7 @@ export class ResourceRequest {
     public to(uri: string): this {
         const spliterIndex = uri.indexOf('://');
         const protocol = uri.substring(0, spliterIndex);
-        this._provider = this._service.findProtocol(protocol);
+        this._provider = ResourceManager.findProtocol(protocol);
         if (!this._provider) {
             throw new TypeError(`Cannot set protocol to ${protocol}: No provider for protocol ${protocol}`);
         }
@@ -209,9 +207,7 @@ export class ResourceRequest {
      * @param tags Tags
      */
     public tag(...tags: string[]): this {
-        tags.forEach(tag => {
-            if (!this._tags.includes(tag)) { this._tags.push(tag); }
-        });
+        tags.forEach(tag => !this._tags.includes(tag) && this._tags.push(tag));
         return this;
     }
 
@@ -219,21 +215,21 @@ export class ResourceRequest {
      * Send request to message service
      */
     public send(): void {
-        this._service.apply(this, RequestMode.ViaMessageService);
+        ResourceManager.apply(this, RequestMode.ViaMessageService);
     }
 
     /**
      * Send request asynchronized
      */
     public require<T>(): ResourceResponse<Observable<T>> {
-        return this._service.apply<T>(this, RequestMode.Asynchronized) as any;
+        return ResourceManager.apply<T>(this, RequestMode.Asynchronized) as any;
     }
 
     /**
      * Send request synchronized (Not all provider supports this method)
      */
     public requireSync<T>(): ResourceResponse<T> {
-        return this._service.apply<T>(this, RequestMode.Synchronized) as any;
+        return ResourceManager.apply<T>(this, RequestMode.Synchronized) as any;
     }
 }
 

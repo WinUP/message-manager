@@ -1,21 +1,25 @@
-var { BaseComponent, ResourceManager, MessageService, MemoryCache } = require('./dist');
+var { ListenerComponent, MessageService, StateListener } = require('./dist');
 
-const message = new MessageService();
 
-class TestComponent extends BaseComponent {
+class TestComponent extends ListenerComponent {
     constructor() {
-        super(message);
-        this.onMessage(message.listener.for(1).listenAll().receiver(message => {
-            console.log(message);
-            return message;
-        }));
+        super({ test1: 1, test2: [1,2,3], test3: { test31: 1, test32: { test321: 1 } } });
+    }
+
+    stateListener(old) {
+        console.log(JSON.stringify(old));
     }
 }
 
-const test = new TestComponent();
-const cache = new MemoryCache(message);
+StateListener()(TestComponent.prototype, 'stateListener', null);
 
-console.log(cache.has('test'));
-cache.set('test', 'value');
-console.log(cache.get('test'));
+const instance = new TestComponent();
 
+instance.state.test1 = 2;
+instance.beginCacheStateChanges();
+instance.state.test2 = [2,3,4];
+instance.state.test2[0] = 3;
+instance.state.test3.test32 = { test322: 1 }
+instance.state.test1 = 3;
+instance.finishCacheStateChanges();
+instance.state.test3.test32.test322 = 2;

@@ -1,7 +1,7 @@
 export enum InjectorTimepoint {
-    AfterPrepared = 0B1,
-    BeforeSend    = 0B10,
-    AfterSent     = 0B100,
-    OnSucceed     = 0B1000,
-    OnFailed      = 0B10000
+    AfterPrepared = 1,
+    BeforeSend    = 1 << 1,
+    AfterSent     = 1 << 2,
+    OnSucceed     = 1 << 3,
+    OnFailed      = 1 << 4
 }

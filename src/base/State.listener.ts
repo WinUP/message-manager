@@ -1,35 +1,19 @@
-import { SerializableNode } from '@dlcs/tools';
-
-import { BaseComponent } from './BaseComponent';
-import { IAutoRegister } from './AutoRegister';
+import { ListenerComponent, ReflectorName } from './ListenerComponent';
 
 /**
- * State listener parameters
+ * State listener after state is changed
+ * @description State listener only raised when value is really *changed*. At that time, changed part's old value
+ * will be yout function's parameter.
  */
-export interface IStateListenerDefinition {
-    /**
-     * From state
-     */
-    from: string | RegExp;
-    /**
-     * To state
-     */
-    to: string | RegExp;
-}
-
-/**
- * State listener
- * @param input Parameters
- */
-export function StateListener(input: IStateListenerDefinition) {
-    return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target,
-            `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
-        , {
-            get: (): IAutoRegister => ({
-                type: 'StateListener',
-                params: [input.from, input.to]
-            })
+export function StateListener() {
+    return function (target: ListenerComponent, propertyKey: string, descriptor: PropertyDescriptor) {
+        const component: any = target;
+        if (!Object.getOwnPropertyNames(component).includes(ReflectorName)) {
+            Object.defineProperty(target, ReflectorName, { value: [], enumerable: true, configurable: true });
+        }
+        component[ReflectorName].push({
+            target: propertyKey,
+            type: 'StateListener'
         });
     };
 }

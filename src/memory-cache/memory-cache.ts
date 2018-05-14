@@ -1,31 +1,27 @@
-import { SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
-import { cloneDeep } from 'lodash';
+import { SerializableNode, ISerializableNode } from '@dlcs/tools';
 
-import { MessageService } from '../message/message.service';
+import { MessageQueue } from '../message/message-queue';
 
 /**
- * Configuration keys for MemoryCache
+ * Configurations for MemoryCache
  */
-export interface IMemoryCacheConfigKeys {
+export interface IMemoryCacheConfig {
     /**
      * OnAction and MessageService intergration configuration
      */
     action: {
         /**
-         * Message mask
-         * @default 1
+         * Message mask (default 1)
          */
-        mask: string;
+        mask: number;
         /**
-         * Message tag
-         * @default 'ACTION'
+         * Message tag (default 'ACTION')
          */
         tag: string;
         /**
-         * Data share tag
-         * @default 'MEMORY_CACHE_SHARE'
+         * Data restore tag (default 'MEMORY_CACHE_RESTORE')
          */
-        shareTag: string;
+        restoreTag: string;
     };
 }
 
@@ -34,9 +30,9 @@ export interface IMemoryCacheConfigKeys {
  */
 export interface IMemoryCacheMessage<T = any, U = T> {
     /**
-     * Cache's key
+     * Cache's path
      */
-    key: string;
+    path: string;
     /**
      * Cache's old value
      */
@@ -47,30 +43,24 @@ export interface IMemoryCacheMessage<T = any, U = T> {
     new: U;
 }
 
+export const CacheShareTag = 'MEMORY_CACHE_SHARE';
+
 export class MemoryCache {
-    private store: { [key: string]: any } = {};
-    private static _config: SerializableNode = SerializableNode.create('ResourceManager', undefined);
-    private static _configKeys: IMemoryCacheConfigKeys = { action: { mask: '', tag: '', shareTag: '' } };
-    private injectors: ((key: string, value: any) => any)[] = [];
+    private static store = new SerializableNode('MemoryCache', undefined);
+    private static injectors: ((key: string, value: any) => any)[] = [];
+    private static _config: IMemoryCacheConfig = { action: {
+        mask: 1, tag: 'ACTION', restoreTag: 'MEMORY_CACHE_RESTORE'
+    } };
 
     public static initialize(): void {
-        autoname(MemoryCache._configKeys, '/', toPascalCase);
-        SerializableNode.set(MemoryCache.config, MemoryCache.configKeys.action.mask, 1);
-        SerializableNode.set(MemoryCache.config, MemoryCache.configKeys.action.tag, 'ACTION');
-        SerializableNode.set(MemoryCache.config, MemoryCache.configKeys.action.shareTag, 'MEMORY_CACHE_SHARE');
-    }
-
-    public constructor(private messageService: MessageService) {
-        this.messageService.listener
+        MessageQueue.listener
             .hasPriority(Number.MAX_SAFE_INTEGER)
-            .for(
-                SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.mask)
-            ).listen(
-                SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.shareTag)
-            ).receiver(message => {
+            .for(this._config.action.mask)
+            .listen(CacheShareTag)
+            .receiver(message => {
                 if (!message.isCrossShare) { return message; }
                 const data: IMemoryCacheMessage = message.value;
-                this.set(data.key, data.new, true, false);
+                this.set(data.path, data.new, true, false);
                 return message;
             }).register();
     }
@@ -78,23 +68,18 @@ export class MemoryCache {
     /**
      * Get configuration
      */
-    public static get config(): SerializableNode {
-        return MemoryCache._config;
+    public static get config(): IMemoryCacheConfig {
+        return this._config;
     }
 
-    /**
-     * Get configuration keys
-     */
-    public static get configKeys(): Readonly<IMemoryCacheConfigKeys> {
-        return MemoryCache._configKeys;
-    }
+    private constructor() { }
 
     /**
      * Register injector
      * @param injector Target injector. Injector will be called before store any value, the returned value will be used
      * as real value to store.
      */
-    public inject(injector: (key: string, value: any) => any): void {
+    public static inject(injector: (key: string, value: any) => any): void {
         if (!this.injectors.includes(injector)) {
             this.injectors.push(injector);
         }
@@ -102,18 +87,18 @@ export class MemoryCache {
 
     /**
      * Get cached item
-     * @param key Cached item's key
+     * @param path Cached item's key
      */
-    public get<T = any>(key: string): T | undefined {
-        return this.store[key];
+    public static get<T = any>(path: string): T | undefined {
+        return this.store.find(path).value;
     }
 
     /**
      * Indicate if cached item is not undefined
      * @param key Cached item's key
      */
-    public has(key: string): boolean {
-        return this.store[key] !== undefined;
+    public static has(path: string): boolean {
+        return this.store.find(path).value !== undefined;
     }
 
     /**
@@ -123,29 +108,44 @@ export class MemoryCache {
      * @param ignoreInjector Should ignore all injectors when store this value
      * @param share Should push to application's other instance if ```MessageService```'s cross share is enabled
      */
-    public set<T>(key: string, value: T, ignoreInjector?: boolean, share?: boolean): void {
-        const oldValue = this.store[key];
+    public static set<T>(path: string, value: T, ignoreInjector?: boolean, share?: boolean): void {
+        const node = this.store.find(path);
+        const oldValue = node.value;
         if (!ignoreInjector) {
-            this.injectors.forEach(injector => value = injector(key, value));
+            this.injectors.forEach(injector => value = injector(path, value));
         }
-        this.store[key] = value;
-        this.messageService.asyncMessage.mark(
-            SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.mask),
-            SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.tag)
-        ).use<IMemoryCacheMessage>({ key: key, old: oldValue, new: value }).ignoreCrossShare().send();
+        node.value = value;
+        MessageQueue.asyncMessage
+            .mark(this._config.action.mask, this._config.action.tag)
+            .use<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
+            .noShare()
+            .send();
         if (share) {
-            this.messageService.asyncMessage.mark(
-                SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.mask),
-                SerializableNode.get(MemoryCache.config, MemoryCache.configKeys.action.shareTag)
-            ).use<IMemoryCacheMessage>({ key: key, old: oldValue, new: value }).send();
+            MessageQueue.asyncMessage
+                .mark(this._config.action.mask, CacheShareTag)
+                .use<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
+                .send();
         }
     }
 
     /**
-     * Dump storage (use lodash.cloneDeep)
+     * Dump storage
      */
-    public dump(): { [key: string]: any } {
-        return cloneDeep(this.store);
+    public static dump(from?: string): ISerializableNode {
+        return this.store.find(from || '/').serialize();
+    }
+
+    /**
+     * Restore from serialized data
+     * @param data Target data
+     */
+    public static restore(data: ISerializableNode): void {
+        this.store = SerializableNode.deserialize(data);
+        MessageQueue.asyncMessage
+            .mark(this._config.action.mask, this._config.action.restoreTag)
+            .use<SerializableNode>(this.store)
+            .noShare()
+            .send();
     }
 }
 

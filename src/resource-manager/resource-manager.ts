@@ -1,31 +1,26 @@
-import { SerializableNode, autoname, toPascalCase } from '@dlcs/tools';
-import { catchError } from 'rxjs/operators/catchError';
-import { Observable } from 'rxjs/Observable';
-import { mergeMap } from 'rxjs/operators/mergeMap';
-import { of } from 'rxjs/observable/of';
+import { mergeMap, catchError } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
 
 import { ResourceRequest, ResourceResponse, ResourceProtocol } from './structures';
 import { InjectorTimepoint, RequestInjector } from './injector/index';
 import { ResponseStatus, IResponseMetadata } from './response/index';
-import { MessageService } from '../message/message.service';
+import { MessageQueue } from '../message/message-queue';
 import { RequestMode } from './RequestMode';
 
 /**
- * Configuration keys for ResourceManager
+ * Configurations for ResourceManager
  */
-export interface IResourceManagerConfigKeys {
+export interface IResourceManagerConfig {
     /**
-     * Response and MessageService intergration configuration
+     * OnResponse and MessageService intergration configuration
      */
     response: {
         /**
-         * Message mask
-         * @default 1
+         * Message mask (default 1)
          */
-        mask: string;
+        mask: number;
         /**
-         * Message tag
-         * @default 'RESPONSE'
+         * Message tag (default 'RESPONSE')
          */
         tag: string;
     };
@@ -35,51 +30,37 @@ export interface IResourceManagerConfigKeys {
  * Resource manager service
  */
 export class ResourceManager {
-    private protocols: ResourceProtocol[] = [];
-    private injectors: { timepoint: number, injector: RequestInjector }[] = [];
-    private static _config: SerializableNode = SerializableNode.create('ResourceManager', undefined);
-    private static _configKeys: IResourceManagerConfigKeys = { response: { mask: '', tag: '' } };
-
-    public static initialize(): void {
-        autoname(ResourceManager._configKeys, '/', toPascalCase);
-        SerializableNode.set(ResourceManager.config, ResourceManager.configKeys.response.mask, 1);
-        SerializableNode.set(ResourceManager.config, ResourceManager.configKeys.response.tag, 'RESPONSE');
-    }
-
-    public constructor(private messageService: MessageService) { }
+    private static protocols: ResourceProtocol[] = [];
+    private static injectors: { timepoint: number, injector: RequestInjector }[] = [];
+    private static _config: IResourceManagerConfig = { response: { mask: 1, tag: 'RESPONSE' } };
 
     /**
      * Prepare a request
      */
-    public get request(): ResourceRequest {
-        return new ResourceRequest(this);
+    public static get request(): ResourceRequest {
+        return new ResourceRequest();
     }
 
     /**
      * Get configuration
      */
-    public static get config(): SerializableNode {
-        return ResourceManager._config;
+    public static get config(): IResourceManagerConfig {
+        return this._config;
     }
 
-    /**
-     * Get configuration keys
-     */
-    public static get configKeys(): Readonly<IResourceManagerConfigKeys> {
-        return ResourceManager._configKeys;
-    }
+    private constructor() { }
 
     /**
      * Send request
      * @param request Resource request
      * @param mode Request mode
      */
-    public apply<T>(request: ResourceRequest, mode: RequestMode): void | ResourceResponse<T | Observable<T>> {
+    public static apply<T>(request: ResourceRequest, mode: RequestMode): void | ResourceResponse<T | Observable<T>> {
         if (!request.provider) {
             throw new TypeError(`Cannot send request: Should set provider/protocol/address first`);
         }
         const response = new ResourceResponse<T | Observable<T>>(request);
-        response.responseData = this.callInjectors(request, response, null, InjectorTimepoint.AfterPrepared);
+        response.responseData = this.callInjectors(request, response, undefined, InjectorTimepoint.AfterPrepared);
         response.to(ResponseStatus.Sending);
         const injectorCallback = (data: any, timepoint: InjectorTimepoint) => {
             return this.callInjectors(request, response, data, timepoint);
@@ -108,21 +89,7 @@ export class ResourceManager {
             if (mode !== RequestMode.ViaMessageService) {
                 return response;
             } else {
-                response.responseData.subscribe(v => {
-                    const data = response.metadata;
-                    data.responseData = v;
-                    this.messageService.asyncMessage.mark(
-                        SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
-                        SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
-                    ).use<IResponseMetadata>(data).send();
-                }, e => {
-                    const data = response.metadata;
-                    data.responseData = e;
-                    this.messageService.asyncMessage.mark(
-                        SerializableNode.get<number>(ResourceManager.config, ResourceManager.configKeys.response.mask),
-                        SerializableNode.get<string>(ResourceManager.config, ResourceManager.configKeys.response.tag)
-                    ).use<IResponseMetadata>(data).send();
-                });
+                response.responseData.subscribe(v => this.sendResponse(response, v), e => this.sendResponse(response, e));
             }
         }
     }
@@ -133,7 +100,7 @@ export class ResourceManager {
      * @param response Response
      * @param timepoint Timepoint
      */
-    public callInjectors(request: ResourceRequest, response: ResourceResponse<any>,
+    public static callInjectors(request: ResourceRequest, response: ResourceResponse<any>,
         responseData: any, timepoint: InjectorTimepoint): any {
         let data = responseData;
         this.injectors.filter(v => (v.timepoint & timepoint) !== 0).forEach(v => {
@@ -146,7 +113,7 @@ export class ResourceManager {
      * Register resource protocol
      * @param protocol Protocol provider
      */
-    public registerProtocol(protocol: ResourceProtocol): boolean {
+    public static registerProtocol(protocol: ResourceProtocol): boolean {
         if (this.protocols.findIndex(v => v === protocol) > -1) {
             return false;
         }
@@ -158,7 +125,7 @@ export class ResourceManager {
      * Find resource protocol provider
      * @param protocol Protocol's name
      */
-    public findProtocol(protocol: string): ResourceProtocol | undefined {
+    public static findProtocol(protocol: string): ResourceProtocol | undefined {
         const provider = this.protocols.find(v => v.isSupport(protocol));
         return provider || undefined;
     }
@@ -168,7 +135,7 @@ export class ResourceManager {
      * @param timepoint Timepoints to raise this injector (using bit compare)
      * @param injector Injector
      */
-    public inject(timepoint: number, injector: RequestInjector): void {
+    public static inject(timepoint: number, injector: RequestInjector): void {
         const existed = this.injectors.find(v => v.injector === injector);
         if (existed) {
             existed.timepoint = existed.timepoint | timepoint;
@@ -176,6 +143,13 @@ export class ResourceManager {
             this.injectors.push({ timepoint: timepoint, injector: injector });
         }
     }
-}
 
-ResourceManager.initialize();
+    private static sendResponse(response: ResourceResponse<any>, responseData: any): void {
+        const data = response.metadata;
+        data.responseData = responseData;
+        MessageQueue.asyncMessage
+            .mark(this.config.response.mask, this.config.response.tag)
+            .use<IResponseMetadata>(data)
+            .send();
+    }
+}

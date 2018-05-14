@@ -1,29 +1,27 @@
-import { AdvancedTree, InstantDebugger, AdvancedTreeNodeStatus, isValueAvailable } from '@dlcs/tools';
-import { Observable } from 'rxjs/Observable';
+import { AdvancedTree, InstantDebugger, AdvancedTreeNodeStatus } from '@dlcs/tools';
+import { Observable } from 'rxjs';
 
-import {
-    Message, SynchronizedMessage, AsynchronizedMessage, SharedMessage
-} from './Message';
+import { Message, SynchronizedMessage, AsynchronizedMessage, SharedMessage } from './Message';
 import { IMessageMetadata } from './MessageMetadata';
 import { Listener } from './Listener';
 
 /**
- * Message service
+ * Message queue
  */
-export class MessageService {
-    private root: AdvancedTree<Listener> = new AdvancedTree<Listener>(undefined, 'MESSAGE_ROOT');
-    private worker: SharedWorker.SharedWorker | undefined = undefined;
-    private needSkipId: string[] = [];
-    private _enableShare: boolean = false;
-    private _debugMode: boolean = false;
+export class MessageQueue {
+    private static root: AdvancedTree<Listener> = new AdvancedTree<Listener>(undefined, 'MessageRoot');
+    private static worker: SharedWorker.SharedWorker | undefined = undefined;
+    private static needSkipId: string[] = [];
+    private static _enableShare: boolean = false;
+    private static _debugMode: boolean = false;
 
     /**
      * Get or set status of debug mode
      * @description Instant debugger name: messageStructureGraph, will print listener tree
      */
-    public get useDebugger(): boolean {
+    public static get debug(): boolean {
         return this._debugMode;
-    } public set useDebugger(value: boolean) {
+    } public static set debug(value: boolean) {
         if (value) {
             InstantDebugger.register('messageStructureGraph', () => {
                 this.root.printStructure();
@@ -37,22 +35,22 @@ export class MessageService {
     /**
      * Indicate if cross share is supported
      */
-    public get supportCrossShare(): boolean {
+    public static get canCrossShare(): boolean {
         return SharedWorker != null;
     }
 
     /**
      * Get or set cross share's worker file. Must be set before enable cross share.
      */
-    public crossShareFile: string | (() => string) | undefined = undefined;
+    public static crossShareFile: string | (() => string) | undefined = undefined;
 
     /**
      * Get or set status of cross share mode
      */
-    public get crossShare(): boolean {
+    public static get crossShare(): boolean {
         return this._enableShare;
-    } public set crossShare(value: boolean) {
-        if (!this.supportCrossShare && value) {
+    } public static set crossShare(value: boolean) {
+        if (!this.canCrossShare && value) {
             throw new TypeError(`Cannot enable cross share: SharedWorker is not supported by environment`);
         }
         if (!value) {
@@ -71,7 +69,7 @@ export class MessageService {
                     this.needSkipId.splice(this.needSkipId.indexOf(data.id), 1);
                     return;
                 }
-                new SharedMessage(this, data.id).mark(data.mask, data.tag).use(data.value).send();
+                new SharedMessage(data.id).mark(data.mask, data.tag).use(data.value).send();
             };
             this.worker.port.start();
         }
@@ -81,31 +79,33 @@ export class MessageService {
     /**
      * Prepare a synchronized message
      */
-    public get syncMessage(): SynchronizedMessage {
-        return new SynchronizedMessage(this);
+    public static get syncMessage(): SynchronizedMessage {
+        return new SynchronizedMessage();
     }
 
     /**
      * Prepare an asynchronize message
      */
-    public get asyncMessage(): AsynchronizedMessage {
-        return new AsynchronizedMessage(this);
+    public static get asyncMessage(): AsynchronizedMessage {
+        return new AsynchronizedMessage();
     }
 
     /**
      * Prepare a listener
      */
-    public get listener(): Listener {
-        return Listener.from(this);
+    public static get listener(): Listener {
+        return new Listener();
     }
+
+    private constructor() { }
 
     /**
      * Broadcast a message
      * @param data Message
      */
-    public send(data: Message): Message | Promise<Message> {
+    public static send(data: Message): Message | Promise<Message> {
         if (!data.isLazyShare) { this.sendCrossShare(data); }
-        if (this.useDebugger) {
+        if (this._debugMode) {
             console.groupCollapsed(
                 `(╯‵□′)╯︵┻━┻ ` +
                 `%c${data.id}%c ` +
@@ -152,7 +152,8 @@ export class MessageService {
                         }
                         runResult = parseData;
                     } catch (e) {
-                        console.error(`Cannnot run listener ${listener.id} in node ${node.id}: Inner exception of listener happened`);
+                        console.error(`Cannnot run listener ${listener.id} in node ${node.id}`);
+                        console.error(e);
                     }
                     return runResult;
                 });
@@ -192,7 +193,7 @@ export class MessageService {
      * @param parent Listener's parent
      * @param priority Listener's priority
      */
-    public receive(listener: Listener, parent?: Listener, priority?: number): AdvancedTree<Listener> {
+    public static receive(listener: Listener, parent?: Listener, priority?: number): AdvancedTree<Listener> {
         let targetNode = this.root.map<AdvancedTree<Listener> | null>((node, result, feedback) => {
             if (node.content === listener) {
                 feedback.cancelled = true;
@@ -221,7 +222,7 @@ export class MessageService {
         return targetNode;
     }
 
-    private sendCrossShare(data: Message): void {
+    private static sendCrossShare(data: Message): void {
         if (this.crossShare && this.worker && !data.isCrossShare && !data.isIgnoreCrossShare) {
             const crossData = data.metadata;
             this.needSkipId.push(crossData.id);

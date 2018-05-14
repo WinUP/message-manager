@@ -1,7 +1,7 @@
-import { createUUIDString } from '@dlcs/tools';
+import { uuid } from '@dlcs/tools';
 
 import { IMessageMetadata } from './MessageMetadata';
-import { MessageService } from './message.service';
+import { MessageQueue } from './message-queue';
 
 /**
  * Message
@@ -11,7 +11,6 @@ export abstract class Message {
     protected _ignoreCrossShare: boolean = false;
     protected _synchronized: boolean = false;
     protected _lazyShare: boolean = false;
-    protected _service: MessageService;
     protected _value: any;
     protected _mask: number = 0;
     protected _tag: string = '';
@@ -25,11 +24,10 @@ export abstract class Message {
      * @param id ID
      * @description Message default settings: mask 0, no tag, asynchronized
      */
-    protected constructor(service: MessageService, synchronized: boolean, crossShare: boolean, id?: string) {
+    protected constructor(synchronized: boolean, crossShare: boolean, id?: string) {
         this._synchronized = synchronized;
-        this._service = service;
         this._fromCrossShare = crossShare;
-        this._id = id || createUUIDString();
+        this._id = id || uuid();
     }
 
     /**
@@ -60,24 +58,6 @@ export abstract class Message {
      */
     public get asynchronized(): boolean {
         return !this._synchronized;
-    }
-
-    /**
-     * Enable lazy share
-     * @description Lazy share only affects cross share. Normally message will send its copy immediately to
-     * cross share, when lazy share is enabling, it will send after all suitable listener processed itself.
-     */
-    public enableLazyShare(): this {
-        this._lazyShare = true;
-        return this;
-    }
-
-    /**
-     * Disable cross share for this message, no matter what message service's configuration is.
-     */
-    public ignoreCrossShare(): this {
-        this._ignoreCrossShare = true;
-        return this;
     }
 
     /**
@@ -125,6 +105,24 @@ export abstract class Message {
     }
 
     /**
+     * Enable lazy share
+     * @description Lazy share only affects cross share. Normally message will send its copy immediately to
+     * cross share, when lazy share is enabling, it will send after all suitable listener processed itself.
+     */
+    public lazy(): this {
+        this._lazyShare = true;
+        return this;
+    }
+
+    /**
+     * Disable cross share for this message, no matter what message service's configuration is.
+     */
+    public noShare(): this {
+        this._ignoreCrossShare = true;
+        return this;
+    }
+
+    /**
      * Set message's mask and tag
      * @param mask Mask
      * @param tag Tag
@@ -149,15 +147,15 @@ export abstract class Message {
  * Synchronized message
  */
 export class SynchronizedMessage extends Message {
-    public constructor(service: MessageService, id?: string) {
-        super(service, true, false, id);
+    public constructor(id?: string) {
+        super(true, false, id);
     }
 
     /**
      * Copy this message as asynchronized message
      */
     public toAsynchronized(): AsynchronizedMessage {
-        return new AsynchronizedMessage(this._service, this._id)
+        return new AsynchronizedMessage(this._id)
             .mark(this._mask, this._tag)
             .use(this._value);
     }
@@ -166,7 +164,7 @@ export class SynchronizedMessage extends Message {
      * Send this message to message service
      */
     public send(): SynchronizedMessage {
-        return this._service.send(this) as SynchronizedMessage;
+        return MessageQueue.send(this) as SynchronizedMessage;
     }
 }
 
@@ -174,15 +172,15 @@ export class SynchronizedMessage extends Message {
  * Asynchronized message
  */
 export class AsynchronizedMessage extends Message {
-    public constructor(service: MessageService, id?: string) {
-        super(service, false, false, id);
+    public constructor(id?: string) {
+        super(false, false, id);
     }
 
     /**
      * Copy this message as synchronized message
      */
     public toSynchronized(): SynchronizedMessage {
-        return new SynchronizedMessage(this._service, this._id)
+        return new SynchronizedMessage(this._id)
             .mark(this._mask, this._tag)
             .use(this._value);
     }
@@ -191,7 +189,7 @@ export class AsynchronizedMessage extends Message {
      * Send this message to message service
      */
     public send(): Promise<AsynchronizedMessage> {
-        return this._service.send(this) as Promise<AsynchronizedMessage>;
+        return MessageQueue.send(this) as Promise<AsynchronizedMessage>;
     }
 }
 
@@ -199,14 +197,14 @@ export class AsynchronizedMessage extends Message {
  * Shared message
  */
 export class SharedMessage extends Message {
-    public constructor(service: MessageService, id?: string) {
-        super(service, false, true, id);
+    public constructor(id?: string) {
+        super(false, true, id);
     }
 
     /**
      * Send this message to message service
      */
     public send(): Promise<AsynchronizedMessage> {
-        return this._service.send(this) as Promise<AsynchronizedMessage>;
+        return MessageQueue.send(this) as Promise<AsynchronizedMessage>;
     }
 }

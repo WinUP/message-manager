@@ -1,31 +1,32 @@
-import { createUUIDString, callStack, AdvancedTree } from '@dlcs/tools';
-import { Observable } from 'rxjs/Observable';
+import { callStack, AdvancedTree, uuid } from '@dlcs/tools';
+import { Observable } from 'rxjs';
 
-import { MessageService } from './message.service';
+import { MessageQueue } from './message-queue';
 import { Message } from './Message';
 
 /**
  * Message listener
  */
 export class Listener {
+    private _id: string;
     private _tag: string[] = [];
     private _mask: number = 0;
     private _priority: number = 0;
     private _disposable: boolean = false;
     private _receiver: ((message: Message) => Message | Observable<Message> | Promise<Message>) | null = null;
 
-    private constructor(private _id: string, private _service: MessageService) { }
-
     /**
-     * Create a new listener from target message service
-     * @param service Message service
-     * @description Listener default settings: mask 0, undisposable, listene all
+     * Create a new listener
+     * @param id Listener's ID
      */
-    public static from(service: MessageService): Listener {
-        const stack = callStack();
-        const name = stack && stack.length > 1 ? stack[2].identifiers[0] : '';
-        const target = new Listener(`[${name}]${createUUIDString()}`, service);
-        return target;
+    public constructor(id?: string) {
+        if (id) {
+            this._id = id;
+        } else {
+            const stack = callStack();
+            const name = stack && stack.length > 1 ? stack[2].identifiers[0] : '';
+            this._id = `[${name}]${uuid()}`;
+        }
     }
 
     /**
@@ -101,7 +102,7 @@ export class Listener {
      * @param mask Message mask
      * @param tag Message tag
      */
-    public isAvailableFor(mask: number, tag: string | null): boolean {
+    public isAvailableFor(mask: number, tag?: string): boolean {
         return (this._mask & mask) !== 0 && (this._tag.length === 0 || !tag || this._tag.indexOf(tag) > -1);
     }
 
@@ -143,9 +144,6 @@ export class Listener {
      * @param parent Parent listener on message service if have
      */
     public register(parent?: Listener): AdvancedTree<Listener> {
-        if (this._service == null) {
-            throw new TypeError(`Cannot register message listener ${this._id}: No available message service`);
-        }
-        return this._service.receive(this, parent, this._priority);
+        return MessageQueue.receive(this, parent, this._priority);
     }
 }

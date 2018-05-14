@@ -1,7 +1,4 @@
-import { SerializableNode } from '@dlcs/tools';
-
-import { BaseComponent } from './BaseComponent';
-import { IAutoRegister } from './AutoRegister';
+import { ListenerComponent, ReflectorName } from './ListenerComponent';
 
 /**
  * Message listener parameters
@@ -19,10 +16,6 @@ export interface IMessageListenerDefinition {
      * Listener priority
      */
     priority?: number;
-    /**
-     * Component state
-     */
-    state?: string | RegExp;
 }
 
 /**
@@ -30,19 +23,19 @@ export interface IMessageListenerDefinition {
  * @param input Parameters
  */
 export function MessageListener(input: IMessageListenerDefinition) {
-    return function (target: BaseComponent, propertyKey: string, descriptor: PropertyDescriptor) {
-        Object.defineProperty(target,
-            `${propertyKey}${SerializableNode.get<string>(BaseComponent.config, BaseComponent.configKeys.reflector.name)}`
-        , {
-            get: (): IAutoRegister => ({
-                type: 'MessageListener',
-                params: [
-                    input.mask,
-                    input.priority,
-                    input.state,
-                    ...(input.tags || [])
-                ]
-            })
+    return function (target: ListenerComponent, propertyKey: string, descriptor: PropertyDescriptor) {
+        const component: any = target;
+        if (!Object.getOwnPropertyNames(component).includes(ReflectorName)) {
+            Object.defineProperty(target, ReflectorName, { value: [], enumerable: true, configurable: true });
+        }
+        component[ReflectorName].push({
+            target: propertyKey,
+            type: 'MessageListener',
+            params: [
+                input.mask,
+                input.priority,
+                ...(input.tags || [])
+            ]
         });
     };
 }
