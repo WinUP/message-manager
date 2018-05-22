@@ -34,8 +34,13 @@ Deus Legem 创作系统核心模块。
         - [ResourceRequest (资源请求)](#resourcerequest)
         - [ResourceResponse<T> (资源回执)](#resourceresponset)
     - [ListenerComponent<T> （监听器组件）](#listenercomponentt)
+        - [Angular解决方案](#angular)
+        - [React解决方案](#react)
+        - [Component进阶用法](#component)
 
 *以下内容会包含很多示例代码，其中也有许多链式方法。除非特别提醒，否则它们都不是Immutable方法。*
+
+<a id="messagequeue"></a>
 
 ## MessageQueue (消息队列)
 
@@ -47,7 +52,11 @@ import { MessageQueue, SynchronizedMessage, AsynchronizedMessage, Listener, IMes
 
 消息队列在同一程序实例中只允许存在一个，它表现为一个静态类，通过结构化拷贝算法（参考[MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm)）实现跨页面数据传输，这导致它所处的浏览器必须支持SharedWorker，否则该部分功能不可用。同时，由于使用SharedWorker实现，启用跨页同步功能前必须设置Worker文件的位置（即本npm包内worker文件夹下的cross-share.js文件），凡是指向同一个Worker文件的页面都可分享各自的数据。
 
-<small>提示：文件位置不重要，重要的是内容</small>
+如果不设置Worker文件，则跨页面数据传输不可用，其他功能不受干扰。
+
+<small>提示：文件位置不重要，重要的是内容和WebWorker的同源策略</small>
+
+<a id="listener"></a>
 
 ### Listener (监听器)
 
@@ -69,6 +78,8 @@ listener.parse(MessageQueue.asyncMessage) // 处理一条消息，这也是消�
 listener.register() // 将监听器注册到消息循环（立即生效）
 listener.register(MessageQueue.listener) // 如果给出一个其他监听器，则注册为那个监听器的子节点
 ```
+
+<a id="message"></a>
 
 ### Message (消息)
 
@@ -93,6 +104,8 @@ message
     .toAsynchronized() // 复制为异步消息，这是一个Immutable方法
     .send() // 发送此消息。异步消息会返回内容是消息本身的Promise，同步消息则直接返回消息本身（当然返回前会先被消息循环处理）
 ```
+
+<a id="memorycache"></a>
 
 ## MemoryCache (中央存储库)
 
@@ -124,6 +137,8 @@ MessageQueue.listener
     .register()
 ```
 
+<a id="resourcemanager"></a>
+
 ## ResourceManager (资源管理器)
 
 ```typescript
@@ -149,6 +164,8 @@ ResourceManager.config.response.tag = 'RESPONSE' // 设置消息广播的TAG
 // 资源管理器还有一些API，但由于存在更更用的封装，此处不想介绍
 ```
 
+<a id="resourceprotocol"></a>
+
 ### ResourceProtocol (协议提供方)
 
 在开发创作系统的过程中共发布了两款协议提供方，一个是[Angular HttpClient提供器](https://github.com/WinUP/dlcs-provider-angular-http)，一个是[HTML5 LocalStorage提供器](https://github.com/WinUP/dlcs-provider-local-storage)。
@@ -160,7 +177,6 @@ ResourceManager.registerProtocol(new AngularHttpProtocol(httpClient)); // 需要
 
 从零创造一个协议提供方也很简单，只要继承ResourceProtocol类并实现两个虚方法即可。
 
-
 ```typescript
 public abstract request(request: ResourceRequest, injector?: (data: any, timepoint: InjectorTimepoint) => any): Observable<any>; // 异步请求
 
@@ -168,6 +184,8 @@ public abstract requestSync(request: ResourceRequest, injector?: (data: any, tim
 ```
 
 ```injector```参数是资源管理器封装的拦截器调用。如果它存在，所有协议提供方都应该在恰当的时机以```InjectorTimepoint.BeforeSend```（请求执行前）和```InjectorTimepoint.AfterSent```（请求执行后且完成前）作为时间点调用它。
+
+<a id="resourcerequest"></a>
 
 ### ResourceRequest (资源请求)
 
@@ -185,13 +203,15 @@ request.tags // 获取请求的TAG（如果有）
 request
     .to('remote:///state/user/password') // 设置请求的URI，同时也会自动查找协议提供方
     .as(RequestType.Submit) // 设置请求的类型
-    .submit('qwer') // 设置请求的内容，同时会把类型设置为RequestType.Submit
+    .submit('qwer') // 设置请求的内容，同时submit函数会自动把类型设置为RequestType.Submit（即上一行不必要）
     .param({ oauth_id: '...', access_token: '...' }) //设置请求的参数
     .tag('1', 'a', '3') // 给请求加TAG
 request.send() // 发送请求并等待消息循环返回结果，只有这种方式能够被跨页分享
 request.require() // 直接发送请求并返回Observable，不通过消息循环
 request.requireSync() // 与上一行相同，但要求以同步方式获取资源，有可能在不支持同步获取的协议提供方上导致错误
 ```
+
+<a id="resourceresponse"></a>
 
 ### ResourceResponse<T> (资源回执)
 
@@ -203,6 +223,8 @@ response.responseData // 获取回执的内容。异步请求时这是一个Obse
 response.status // 获取回执的状态
 response.request // 获取回执对应的请求
 ```
+
+<a id="listenercomponentt"></a>
 
 ## ListenerComponent<T> （监听器组件）
 
@@ -228,7 +250,7 @@ export class UserComponent extends ListenerComponent<TestState> {
         super({ signed: false, user: { name: '', nickname: ''. permissions: [] } }, 100);
         // 第一个参数是初始状态。状态变化采用类似MobX的方式监听，因此必须一开始便保证对象的键(key)都存在。
         // 或者可以在恰当的时机调用this.recreateStateObservers()重新绑定监听（存在一定性能消耗）
-        // 第二个参数是组件根监听器的优先级
+        // 第二个参数是组件根监听器的优先级。除了状态监听器外，所有监听器都是消息循环监听器的某种封装。
     }
 
     // 这是一个资源监听器，可以配置地址、TAG和请求参数的过滤，能够监听RequestMode为ViaMessageService的请求。
@@ -261,7 +283,7 @@ export class UserComponent extends ListenerComponent<TestState> {
     }
 }
 
-const instance = new TestComponent(); // 声明一个组件
+const instance = new UserComponent(); // 声明一个组件
 
 // 关于修改State的小技巧
 instance.beginCacheStateChanges(); // 每次改变State都会导致监听器调用，不过我们可以缓存这种调用
@@ -273,5 +295,133 @@ instance.finishCacheStateChanges(); // 由于已经缓存，这会导致上面�
 // 因为我们把仅有的两个一级字段都改了
 
 // ! 一定要在组件变得无用时调用destroy()销毁所有监听器 !
-instance.destroy(); // 如果是在其他框架中，将this.destroy()放入对应的销毁函数（如Angular的onDestroy）里即可
+instance.destroy(); // 如果是在其他框架中，将this.destroy()放入对应的销毁函数（如Angular的onDestroy）中即可
+```
+
+<a id="angular"></a>
+
+### Angular解决方案
+
+Angular可以直接使用基础组件，只要令Component继承ListenerComponent即可。
+
+<a id="react"></a>
+
+### React解决方案
+
+在React中，由于唯一一个继承关系已经被React.Component占用，基础组件必须以伴随组件的方式出现。具体来说，React使用基础组件的方式是在React组件内声明一个类型为```ReactAdjointListener```的字段，并在恰当的时机将其初始化（推荐在构造函数或```componentWillMount```中），之后React组件的state和伴随组件的state将会双向绑定，并且定义在React组件上的动态加载方法也能被正确加载。React组件也不再需要手动调用```destroy()```方法，它已被自动包装在```componentWillUnmount```中。
+
+```typescript
+interface TestState {
+    signed: boolean;
+    user: {
+        name: string,
+        nickname: string,
+        permissions: string[]
+    }
+}
+
+export class UserReactComponent extends React.Component<{}, TestState> {
+    private listener: ReactAdjointListener;
+    public constructor() {
+        super({});
+        this.listener = new ReactAdjointListener(this, {
+            signed: false, user: { name: '', nickname: ''. permissions: [] }
+        }, 100); // 第一个参数为React组件，后面的参数和一般基础组件相同
+    }
+
+    // 接下来声明几个监听器
+
+    @ResourceListener({ address: undefined, tags: ['user_profile'], params: undefined })
+    public onResponseListener(response: IResponseMetadata): void {
+        console.log(response.responseData);
+    }
+
+    @MessageListener({ mask: 0B0110, priority: 100, tags: undefined })
+    public onMessageListener(message: Message): void {
+        console.log(message.value);
+    }
+
+    @StateListener()
+    public onStateListener(previous: TestState): void {
+        console.log(previous);
+    }
+
+    @CacheListener({ key: '/state/user/token' })
+    public onCacheListener(data: IMemoryCacheMessage): void {
+        console.log(data);
+    }
+}
+
+const instance = new UserReactComponent(); // 声明一个组件
+
+instance.listener.state.signed = true; // 这一行会自动触发React组件的setState()函数
+instance.setState({
+    signed: true, user: { name: 'test', nickname: 'Test'. permissions: [] }
+}); // 这一行同样也会调用声明的onStateListener()监听器（等同于state完整替换，即instance.listener.state = {...}）
+```
+<a id="component"></a>
+
+### Component进阶用法
+
+从1.2.1版开始，```ListenerComponent```的三个静态方法对外开放：
+
+- 从任意实例的原型链上寻找可自动组装的方法（即那一大堆Listener注解）的方法
+- 自动组装方法
+- 关联基础组件的状态监听器和特定对象的方法
+
+同时，手动调用基础组件状态监听器的方法也对继承的组件内部开放使用。
+
+```typescript
+// TestState还是上面那个TestState
+export class UserComponent extends ListenerComponent<TestState> {
+    // 下面这一大块不赘述了
+    public constructor() {
+        super({ signed: false, user: { name: '', nickname: ''. permissions: [] } }, 100);
+    }
+    @ResourceListener({ address: undefined, tags: ['user_profile'], params: undefined })
+    public onResponseListener(response: IResponseMetadata): void {
+        console.log(response.responseData);
+    }
+    @MessageListener({ mask: 0B0110, priority: 100, tags: undefined })
+    public onMessageListener(message: Message): void {
+        console.log(message.value);
+    }
+    @StateListener()
+    public onStateListener(previous: TestState): void {
+        console.log(previous);
+    }
+    @CacheListener({ key: '/state/user/token' })
+    public onCacheListener(data: IMemoryCacheMessage): void {
+        console.log(data);
+    }
+
+    // 从这里开始介绍新功能
+    public testFunction(): void {
+        this.callStateListeners({ signed: true }); // 这可以在不真的改变state的情况下强行调用一波状态监听器
+        // beginCacheStateChanges()和finishCacheStateChanges()对上一行也有效
+        // 这是一个protected方法
+    }
+}
+
+// 其他新功能
+const instance = new UserComponent();
+
+// 1. findAutowiredFunctions方法
+const methods: IAutoRegister[] = ListenerComponent.findAutowiredFunctions(instance);
+// 上面一行可以得到一个数组，内容是UserComponent上所有被标记为自动组装的方法的描述
+
+// 2. autowire方法
+const instance2 = new UserReactComponent(); // 首先声明一个上面用过的React组件
+ListenerComponent.autowire(instance2, instance); // 这可以把定义在instance2上的自动组装方法全部加载到instace上
+// ReactAdjointListener的实现原理正是上面这一行
+
+// 3. createObserver方法
+const anotherState = { blocked: false };
+ListenerComponent.createObserver(anotherState, instance, anotherState);
+// 上面一行可以令instance(参数2)的状态监听器监听anotherState(参数3)的变化，并在发生变化时以anotherState(参数1)为根对象调用instance上的状态监听器
+const state3 = { hasDashboard: true, dashboards: [] };
+ListenerComponent.createObserver(state3, instance, state3.dashboards, 'dashboards');
+// 另一种用法，令instance上的状态监听器只监听state3里dashboards的变化。
+
+// 注：手动调用createObserver方法我觉得很废，既然要监控，为何不干脆定义到state里面去呢。
 ```

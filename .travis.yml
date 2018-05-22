@@ -1,7 +1,9 @@
 language: node_js
 node_js:
-  - '9'
-install: npm install
+  - '10'
+install:
+  - npm install
+  - npm install react@16 rxjs@6
 script:
   - npm run tsc
   - npm run test

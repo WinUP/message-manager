@@ -13,11 +13,15 @@ export const ReflectorName = '$$RegisterMetadata$$';
  * @description Listener component provides state management, services intergration, runtime reflection, etc.
  */
 export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
-    private _rootListener: AdvancedTree<Listener>;
     private _currentState: number = 0;
     private _stateListeners: ((diff: { [key: string]: any }) => void)[] = [];
     private _state: T;
     private stateChangeCache: { [key: string]: any } | undefined;
+
+    /**
+     * Get component's root listener
+     */
+    public readonly rootListener: AdvancedTree<Listener>;
 
     /**
      * Get, set or replace component's state
@@ -27,14 +31,7 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
         return this._state;
     } public set state(value) {
         this._stateListeners.forEach(listener => listener(value));
-        this._state = this.createObserver(this._state);
-    }
-
-    /**
-     * Get component's root listener
-     */
-    public get rootListener(): AdvancedTree<Listener> {
-        return this._rootListener;
+        this._state = ListenerComponent.createObserver(this._state, this, this._state);
     }
 
     /**
@@ -45,22 +42,20 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
      * be observed.
      */
     protected constructor(initState: T = {} as any, priority: number = 100) {
-        this._rootListener = MessageQueue.listener
+        this.rootListener = MessageQueue.listener
             .for(0)
             .hasPriority(priority)
             .listenAll()
-            .receiver(m => m)
             .register();
-        this._state = initState;
-        this.createObserver(this._state);
-        this.autowire();
+        this._state = ListenerComponent.createObserver(initState, this, initState);
+        ListenerComponent.autowire(this, this);
     }
 
     /**
      * Destroy this component's message listeners
      */
     public destroy(): void {
-        this._rootListener.destroy();
+        this.rootListener.destroy();
     }
 
     /**
@@ -68,7 +63,8 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
      * @description This method will not trigger state listeners
      */
     public recreateStateObservers(): void {
-        this._state = this.createObserver(cloneDeep(this._state));
+        const newState = cloneDeep(this._state);
+        this._state = ListenerComponent.createObserver(newState, this, newState);
     }
 
     /**
@@ -104,9 +100,9 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
      */
     public onMessage(target: Listener | AdvancedTree<Listener>): AdvancedTree<Listener> {
         if (target instanceof Listener) {
-            return target.register(this._rootListener.content);
+            return target.register(this.rootListener.content);
         } else {
-            target.parent = this._rootListener;
+            target.parent = this.rootListener;
             return target;
         }
     }
@@ -158,14 +154,14 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
     }
 
     /**
-     * 寻找原型链上所有自动组装定义
-     * @param target 起始寻找目标
+     * Find all autowirable functions
+     * @param target Root component
      */
-    private findAutowiredFunctions(target: this): IAutoRegister[] {
+    public static findAutowiredFunctions(target: object): IAutoRegister[] {
         let props: IAutoRegister[] = [];
         do {
             // 不从比ListenerComponent更早的元素寻找
-            if (target.constructor === ListenerComponent.constructor) { break; }
+            if (!target || target.constructor === ListenerComponent.constructor) { break; }
             if (Object.getOwnPropertyNames(target).includes(ReflectorName)) {
                 props = props.concat((target as any)[ReflectorName]); // 合并组装定义数组
             }
@@ -174,19 +170,21 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
     }
 
     /**
-     * 自动组装
+     * Autowire
+     * @param from Object that defines listeners
+     * @param target Object that autowire to
      */
-    private autowire(): void {
-        const registers: IAutoRegister[] = this.findAutowiredFunctions(this);
+    public static autowire(from: object, target: ListenerComponent): void {
+        const registers: IAutoRegister[] = ListenerComponent.findAutowiredFunctions(from);
         for (let i = 0; i < registers.length; i++) {
             const register: IAutoRegister = registers[i];
-            const metadata: Function = (this as any)[register.target];
+            const metadata: Function = (from as any)[register.target];
             if (register.type === 'ResourceListener') {
-                this.onResponse(data => {
-                    metadata.call(this, data);
+                target.onResponse(data => {
+                    metadata.call(from, data);
                 }, register.params[0], register.params[1], register.params[2]);
             } else if (register.type === 'StateListener') {
-                this.onState(diff => metadata.call(this, diff));
+                target.onState(diff => metadata.call(from, diff));
             } else if (register.type === 'MessageListener') {
                 let listener = MessageQueue.listener.for(register.params[0]);
                 if (register.params[1] != null) {
@@ -199,35 +197,37 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
                 } else {
                     listener = listener.listenAll();
                 }
-                this.onMessage(listener.receiver(message => {
-                    message = metadata.call(this, message);
+                target.onMessage(listener.receiver(message => {
+                    message = metadata.call(from, message);
                     return message;
                 }));
             } else if (register.type === 'CacheListener') {
-                this.onCache(metadata.bind(this), register.params[0]);
+                target.onCache(metadata.bind(from), register.params[0]);
             }
         }
     }
 
     /**
-     * 创建状态监听器
-     * @param source 要监听的对象
-     * @param rootKey 对应的state根路径键名（如果要监听的对象不是state根对象）
+     * Create state listener
+     * @param root Root object
+     * @param target Component that handles state changes
+     * @param source Object to be observed
+     * @param rootKey Key in root that value contains source (if source is child of root)
      */
-    private createObserver(source: any, rootKey?: string): any {
+    public static createObserver(root: any, target: ListenerComponent, source: any, rootKey?: string): any {
         if (source instanceof Array) { // 拦截数组调用
             return typeof Proxy !== 'undefined' ? new Proxy<any[]>(source, {
                 set: (obj, name: any, value) => {
                     if (value === obj[name]) {
                         return true;
                     }
-                    const oldValue = cloneDeep(this._state[rootKey!]);
+                    const oldValue = cloneDeep(root[rootKey!]);
                     obj[name] = value;
                     if (value instanceof Object) { // 递归处理新对象
-                        obj[name] = this.createObserver(value, rootKey);
+                        obj[name] = this.createObserver(root, target, value, rootKey);
                     }
                     if (name !== 'length') { // 排除长度操作
-                        this.callStateListener(rootKey!, oldValue);
+                        target.callStateListeners(rootKey!, oldValue);
                     }
                     return true;
                 }
@@ -244,18 +244,18 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
                         if (value === valueReference) {
                             return;
                         }
-                        const oldValue = cloneDeep(this._state[rootKey || key]);
+                        const oldValue = cloneDeep(root[rootKey || key]);
                         valueReference = value;
                         // 如果是对象赋值，重新递归处理所有子对象
                         if (typeof valueReference === 'object') {
-                            valueReference = this.createObserver(valueReference, rootKey || key);
+                            valueReference = this.createObserver(root, target, valueReference, rootKey || key);
                         }
-                        this.callStateListener(rootKey || key, oldValue);
+                        target.callStateListeners(rootKey || key, oldValue);
                     }
                 });
                 // 递归处理所有子对象
                 if (typeof valueReference === 'object') {
-                    valueReference = this.createObserver(valueReference, rootKey || key);
+                    valueReference = this.createObserver(root, target, valueReference, rootKey || key);
                 }
             });
             return source;
@@ -265,10 +265,11 @@ export abstract class ListenerComponent<T extends { [key: string]: any } = {}> {
     }
 
     /**
-     * 触发所有状态监听器（或放入缓存）
-     * @param key 出现变化的state根键名
+     * Call all state listeners
+     * @param key Data key
+     * @param value Data value
      */
-    private callStateListener(key: string, value: any): void {
+    protected callStateListeners(key: string, value: any): void {
         if (this.stateChangeCache) {
             this.stateChangeCache[key] = value;
         } else {

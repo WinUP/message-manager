@@ -1,4 +1,4 @@
-import { ListenerComponent, ReflectorName } from './ListenerComponent';
+import { ReflectorName } from './ListenerComponent';
 
 /**
  * State listener parameters
@@ -15,7 +15,7 @@ export interface ICacheListenerDefinition {
  * @param input Parameters
  */
 export function CacheListener(input: ICacheListenerDefinition) {
-    return function (target: ListenerComponent, propertyKey: string, descriptor: PropertyDescriptor) {
+    return function (target: object, propertyKey: string, descriptor: PropertyDescriptor) {
         const component: any = target;
         if (!Object.getOwnPropertyNames(component).includes(ReflectorName)) {
             Object.defineProperty(target, ReflectorName, { value: [], enumerable: true, configurable: true });

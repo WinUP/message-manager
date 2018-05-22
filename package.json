@@ -1,6 +1,6 @@
 {
   "name": "@dlcs/core",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Core module for Deus Legem Creation System",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,14 +21,18 @@
   },
   "homepage": "https://github.com/WinUP/dlcs-core#readme",
   "dependencies": {
-    "@dlcs/tools": "^1.2.0",
-    "lodash": "~4.17.10",
-    "rxjs": ">=6.0.0"
+    "@dlcs/tools": "^1.2.2",
+    "lodash": "~4.17.10"
   },
   "devDependencies": {
     "@types/lodash": "~4.14.108",
+    "@types/react": "^16.3.14",
     "tslint": "5.9.1",
     "typescript": "2.8.3"
+  },
+  "peerDependencies": {
+    "react": "^16.3.2",
+    "rxjs": ">=6.0.0"
   },
   "publishConfig": {
     "access": "public"
