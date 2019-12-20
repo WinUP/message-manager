@@ -148,8 +148,8 @@ export class ResourceManager {
         const data = response.metadata;
         data.responseData = responseData;
         MessageQueue.asyncMessage
-            .mark(this.config.response.mask, this.config.response.tag)
-            .use<IResponseMetadata>(data)
+            .useIdentifier(this.config.response.mask, this.config.response.tag)
+            .useValue<IResponseMetadata>(data)
             .send();
     }
 }

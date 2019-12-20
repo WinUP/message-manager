@@ -16,6 +16,129 @@ export class MessageQueue {
     private static _debugMode: boolean = false;
 
     /**
+     * Broadcast a message
+     * @param data Message
+     */
+    public static send(data: Message): Message | Promise<Message> {
+        if (!data.isLazyShare) { this.sendCrossShare(data); }
+        if (this._debugMode) {
+            console.groupCollapsed(
+                `(╯‵□′)╯︵┻━┻ ` +
+                `%c${data.id}%c ` +
+                `%c<${data.mask}>%c %c${data.tag}%c ` +
+                `%c[${data.isSynchronized ? 'ASYNC' : 'SYNC'}]%c %c[${data.isFromCrossShare ? 'CROSS' : 'LOCAL'}]%c ` +
+                `${data.value instanceof Object ? '' : '-> ' + data.value}`,
+                'color:#9C27B0', 'color:inherit',
+                'color:#9C27B0', 'color:inherit',
+                'color:#D50000', 'color:inherit',
+                data.isSynchronized ? 'color:#4CAF50' : 'color:#FF9800', 'color:inherit',
+                data.isFromCrossShare ? 'color:#4CAF50' : 'color:#FF9800', 'color:inherit');
+            if (data.value == null) {
+                console.log('<Empty message>');
+            } else if (data.value instanceof Object) {
+                console.log(data.value);
+            }
+            // tslint:disable-next-line:no-console
+            console.trace('Stack trace');
+            console.groupEnd();
+        }
+        const deleteQueue: AdvancedTree<Listener>[] = new Array<AdvancedTree<Listener>>();
+        if (data.isSynchronized) {
+            const syncResult = this.root.map<Message>((node, result, feedback) => {
+                const listener = node.content;
+                if (!listener || !listener.isAvailableFor(data.mask, data.tag)) {
+                    return result;
+                }
+                const parseData = listener.parse(result);
+                if (parseData instanceof Observable) {
+                    throw new TypeError(`Cannot run listener ${listener.id}: Synchronized message cannot have Observable result`);
+                }
+                if (parseData instanceof Promise) {
+                    throw new TypeError(`Cannot run listener ${listener.id}: Synchronized message cannot have PromiseLike result`);
+                }
+                if (listener.disposable) {
+                    deleteQueue.push(node);
+                }
+                return parseData;
+            }, data);
+            deleteQueue.forEach(node => node.destroy());
+            if (data.isLazyShare) { this.sendCrossShare(data); }
+            return syncResult;
+        } else {
+            const chain = new Promise<Message>((resolve, reject) => resolve(data));
+            this.root.map<Promise<Message>>((node, result, feedback) => {
+                if (node.status === AdvancedTreeNodeStatus.Unavailable) {
+                    return result;
+                }
+                const listener = node.content;
+                if (!listener || !listener.isAvailableFor(data.mask, data.tag)) {
+                    return result;
+                }
+                return result.then(message => {
+                    let runResult: Message = message;
+                    try {
+                        const parseData = listener.parse(message);
+                        if (listener.disposable) {
+                            deleteQueue.push(node);
+                        }
+                        if (parseData instanceof Observable) {
+                            return parseData.toPromise();
+                        }
+                        if (parseData instanceof Promise) {
+                            return parseData;
+                        }
+                        runResult = parseData;
+                    } catch (e) {
+                        console.error(`Cannnot run listener ${listener.id} in node ${node.id}`);
+                        console.error(e);
+                    }
+                    return runResult;
+                });
+            }, chain);
+            deleteQueue.forEach(node => node.destroy());
+            return chain.then(message => {
+                if (data.isLazyShare) { this.sendCrossShare(data); }
+                return message;
+            });
+        }
+    }
+
+    /**
+     * Register a listener
+     * @param handler Listener
+     * @param parent Listener's parent
+     * @param priority Listener's priority
+     */
+    public static receive(listener: Listener, parent?: Listener, priority?: number): AdvancedTree<Listener> {
+        let targetNode = this.root.map<AdvancedTree<Listener> | null>((node, result, feedback) => {
+            if (node.content === listener) {
+                feedback.cancelled = true;
+                result = node;
+            }
+            return null;
+        }, null);
+        if (targetNode) {
+            return targetNode;
+        }
+        const parentNode = !parent ? this.root : this.root.map<AdvancedTree<Listener> | null>((node, result, feedback) => {
+            if (node.content === parent) {
+                feedback.cancelled = true;
+                result = node;
+            }
+            return result;
+        }, null);
+        if (!parentNode) {
+            throw new TypeError(`Cannot register listener ${listener.id}: Cannot find wanted parent`);
+        }
+        targetNode = new AdvancedTree<Listener>(listener, listener.id);
+        if (priority != null) {
+            targetNode.priority = priority;
+        }
+        targetNode.parent = parentNode;
+        return targetNode;
+    }
+
+    /**
      * Get or set status of debug mode
      * @description Instant debugger name: messageStructureGraph, will print listener tree
      */
@@ -69,7 +192,7 @@ export class MessageQueue {
                     this.needSkipId.splice(this.needSkipId.indexOf(data.id), 1);
                     return;
                 }
-                new SharedMessage(data.id).mark(data.mask, data.tag).use(data.value).send();
+                new SharedMessage(data.id).useIdentifier(data.mask, data.tag).useValue(data.value).send();
             };
             this.worker.port.start();
         }
@@ -97,133 +220,8 @@ export class MessageQueue {
         return new Listener();
     }
 
-    private constructor() { }
-
-    /**
-     * Broadcast a message
-     * @param data Message
-     */
-    public static send(data: Message): Message | Promise<Message> {
-        if (!data.isLazyShare) { this.sendCrossShare(data); }
-        if (this._debugMode) {
-            console.groupCollapsed(
-                `(╯‵□′)╯︵┻━┻ ` +
-                `%c${data.id}%c ` +
-                `%c<${data.mask}>%c %c${data.tag}%c ` +
-                `%c[${data.asynchronized ? 'ASYNC' : 'SYNC'}]%c %c[${data.isCrossShare ? 'CROSS' : 'LOCAL'}]%c ` +
-                `${data.value instanceof Object ? '' : '-> ' + data.value}`,
-                'color:#9C27B0', 'color:inherit',
-                'color:#9C27B0', 'color:inherit',
-                'color:#D50000', 'color:inherit',
-                data.asynchronized ? 'color:#4CAF50' : 'color:#FF9800', 'color:inherit',
-                data.isCrossShare ? 'color:#4CAF50' : 'color:#FF9800', 'color:inherit');
-            if (data.value == null) {
-                console.log('<Empty message>');
-            } else if (data.value instanceof Object) {
-                console.log(data.value);
-            }
-            // tslint:disable-next-line:no-console
-            console.trace('Stack trace');
-            console.groupEnd();
-        }
-        const deleteQueue: AdvancedTree<Listener>[] = new Array<AdvancedTree<Listener>>();
-        if (data.asynchronized) {
-            const chain = new Promise<Message>((resolve, reject) => resolve(data));
-            this.root.map<Promise<Message>>((node, result, feedback) => {
-                if (node.status === AdvancedTreeNodeStatus.Unavailable) {
-                    return result;
-                }
-                const listener = node.content;
-                if (!listener || !listener.isAvailableFor(data.mask, data.tag)) {
-                    return result;
-                }
-                return result.then(message => {
-                    let runResult: Message = message;
-                    try {
-                        const parseData = listener.parse(message);
-                        if (listener.disposable) {
-                            deleteQueue.push(node);
-                        }
-                        if (parseData instanceof Observable) {
-                            return parseData.toPromise();
-                        }
-                        if (parseData instanceof Promise) {
-                            return parseData;
-                        }
-                        runResult = parseData;
-                    } catch (e) {
-                        console.error(`Cannnot run listener ${listener.id} in node ${node.id}`);
-                        console.error(e);
-                    }
-                    return runResult;
-                });
-            }, chain);
-            deleteQueue.forEach(node => node.destroy());
-            return chain.then(message => {
-                if (data.isLazyShare) { this.sendCrossShare(data); }
-                return message;
-            });
-        } else {
-            const syncResult = this.root.map<Message>((node, result, feedback) => {
-                const listener = node.content;
-                if (!listener || !listener.isAvailableFor(data.mask, data.tag)) {
-                    return result;
-                }
-                const parseData = listener.parse(result);
-                if (parseData instanceof Observable) {
-                    throw new TypeError(`Cannot run listener ${listener.id}: Synchronized message cannot have Observable result`);
-                }
-                if (parseData instanceof Promise) {
-                    throw new TypeError(`Cannot run listener ${listener.id}: Synchronized message cannot have PromiseLike result`);
-                }
-                if (listener.disposable) {
-                    deleteQueue.push(node);
-                }
-                return parseData;
-            }, data);
-            deleteQueue.forEach(node => node.destroy());
-            if (data.isLazyShare) { this.sendCrossShare(data); }
-            return syncResult;
-        }
-    }
-
-    /**
-     * Register a listener
-     * @param handler Listener
-     * @param parent Listener's parent
-     * @param priority Listener's priority
-     */
-    public static receive(listener: Listener, parent?: Listener, priority?: number): AdvancedTree<Listener> {
-        let targetNode = this.root.map<AdvancedTree<Listener> | null>((node, result, feedback) => {
-            if (node.content === listener) {
-                feedback.cancelled = true;
-                result = node;
-            }
-            return null;
-        }, null);
-        if (targetNode) {
-            return targetNode;
-        }
-        const parentNode = !parent ? this.root : this.root.map<AdvancedTree<Listener> | null>((node, result, feedback) => {
-            if (node.content === parent) {
-                feedback.cancelled = true;
-                result = node;
-            }
-            return result;
-        }, null);
-        if (!parentNode) {
-            throw new TypeError(`Cannot register listener ${listener.id}: Cannot find wanted parent`);
-        }
-        targetNode = new AdvancedTree<Listener>(listener, listener.id);
-        if (priority != null) {
-            targetNode.priority = priority;
-        }
-        targetNode.parent = parentNode;
-        return targetNode;
-    }
-
     private static sendCrossShare(data: Message): void {
-        if (this.crossShare && this.worker && !data.isCrossShare && !data.isIgnoreCrossShare) {
+        if (this.crossShare && this.worker && !data.isFromCrossShare && !data.isIgnoreCrossShare) {
             const crossData = data.metadata;
             this.needSkipId.push(crossData.id);
             try {
@@ -237,4 +235,6 @@ export class MessageQueue {
             }
         }
     }
+
+    private constructor() { }
 }

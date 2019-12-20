@@ -1,85 +1,25 @@
-import { uuid } from '@dlcs/tools';
+import { v4 } from 'uuid';
 
 import { IMessageMetadata } from './MessageMetadata';
 import { MessageQueue } from './message-queue';
+import { ShareMode } from './share-mode';
 
 /**
  * Message
  */
 export abstract class Message {
-    protected _fromCrossShare: boolean = false;
-    protected _ignoreCrossShare: boolean = false;
-    protected _synchronized: boolean = false;
-    protected _lazyShare: boolean = false;
-    protected _value: any;
-    protected _mask: number = 0;
-    protected _tag: string = '';
-    protected _id: string;
-
-    /**
-     * Create a new message from target message service
-     * @param synchronized Is synchronized message
-     * @param crossShare Is cross share message
-     * @param service Message service
-     * @param id ID
-     * @description Message default settings: mask 0, no tag, asynchronized
-     */
-    protected constructor(synchronized: boolean, crossShare: boolean, id?: string) {
-        this._synchronized = synchronized;
-        this._fromCrossShare = crossShare;
-        this._id = id || uuid();
-    }
-
-    /**
-     * Get message's ID
-     */
-    public get id(): string {
-        return this._id;
-    }
-
-    /**
-     * Get message's tag
-     * @default ''
-     */
-    public get tag(): string {
-        return this._tag;
-    }
-
-    /**
-     * Get message's mask
-     * @default 0
-     */
-    public get mask(): number {
-        return this._mask;
-    }
-
     /**
      * Indicate if this message is asynchronized
      */
-    public get asynchronized(): boolean {
-        return !this._synchronized;
+    public get isSynchronized(): boolean {
+        return this._synchronized;
     }
 
     /**
      * Indicate if this message is synchronized
      */
-    public get isCrossShare(): boolean {
+    public get isFromCrossShare(): boolean {
         return this._fromCrossShare;
-    }
-
-    /**
-     * Indicate if lazy share is enabled
-     * @default false
-     */
-    public get isLazyShare(): boolean {
-        return this._fromCrossShare;
-    }
-
-    /**
-     * Indicate if cross share for this message is disabled
-     */
-    public get isIgnoreCrossShare(): boolean {
-        return this._ignoreCrossShare;
     }
 
     /**
@@ -87,38 +27,69 @@ export abstract class Message {
      */
     public get metadata(): IMessageMetadata {
         return {
-            id: this._id,
+            id: this.id,
             sync: this._synchronized,
-            lazy: this._lazyShare,
-            mask: this._mask,
-            tag: this._tag,
-            value: this._value,
-            ignore: this._ignoreCrossShare
+            mask: this.mask,
+            tag: this.tag,
+            value: this.value,
+            mode: this.shareMode
         };
     }
 
     /**
-     * Get message's content
+     * Get message's unique ID
      */
-    public get value(): any {
-        return this._value;
+    public readonly id: string;
+
+    /**
+     * Share mode decides the way that message queue share this message to other instances of the application in same environment
+     */
+    public shareMode: ShareMode = ShareMode.Disabled;
+
+    /**
+     * Message's mask
+     * @default 0
+     */
+    public mask: number = 0;
+
+    /**
+     * Message's tag
+     * @default ''
+     */
+    public tag: string = '';
+
+    /**
+     * Message's content
+     */
+    public value: any;
+    protected _fromCrossShare: boolean = false;
+    protected _synchronized: boolean = false;
+
+    /**
+     * Create a new message from target message service
+     * @param synchronized Is synchronized message
+     * @param fromCrossShare Is cross share message
+     */
+    protected constructor(synchronized: boolean, fromCrossShare: boolean) {
+        this._synchronized = synchronized;
+        this._fromCrossShare = fromCrossShare;
+        this.id = v4();
     }
 
     /**
-     * Enable lazy share
-     * @description Lazy share only affects cross share. Normally message will send its copy immediately to
-     * cross share, when lazy share is enabling, it will send after all suitable listener processed itself.
+     * Turn message's share mode to `ShareMode.Disabled`
      */
-    public lazy(): this {
-        this._lazyShare = true;
+    public disableShare(): this {
+        this.shareMode = ShareMode.Disabled;
         return this;
     }
 
     /**
-     * Disable cross share for this message, no matter what message service's configuration is.
+     * Set message's share mode
+     * @param mode Destination share mode
      */
-    public noShare(): this {
-        this._ignoreCrossShare = true;
+    public useShareMode(mode: ShareMode): this {
+        this.shareMode = mode;
         return this;
     }
 
@@ -127,9 +98,9 @@ export abstract class Message {
      * @param mask Mask
      * @param tag Tag
      */
-    public mark(mask: number, tag: string): this {
-        this._mask = mask;
-        this._tag = tag;
+    public useIdentifier(mask: number, tag?: string): this {
+        this.mask = mask;
+        this.tag = tag ?? '';
         return this;
     }
 
@@ -137,8 +108,8 @@ export abstract class Message {
      * Set message's content
      * @param value Content
      */
-    public use<T>(value: T): this {
-        this._value = value;
+    public useValue<T>(value: T): this {
+        this.value = value;
         return this;
     }
 }
@@ -147,17 +118,18 @@ export abstract class Message {
  * Synchronized message
  */
 export class SynchronizedMessage extends Message {
-    public constructor(id?: string) {
-        super(true, false, id);
+    public constructor() {
+        super(true, false);
     }
 
     /**
      * Copy this message as asynchronized message
      */
     public toAsynchronized(): AsynchronizedMessage {
-        return new AsynchronizedMessage(this._id)
-            .mark(this._mask, this._tag)
-            .use(this._value);
+        return new AsynchronizedMessage()
+            .useIdentifier(this.mask, this.tag)
+            .useShareMode(this.shareMode)
+            .useValue(this.value);
     }
 
     /**
@@ -172,23 +144,24 @@ export class SynchronizedMessage extends Message {
  * Asynchronized message
  */
 export class AsynchronizedMessage extends Message {
-    public constructor(id?: string) {
-        super(false, false, id);
+    public constructor() {
+        super(false, false);
     }
 
     /**
      * Copy this message as synchronized message
      */
     public toSynchronized(): SynchronizedMessage {
-        return new SynchronizedMessage(this._id)
-            .mark(this._mask, this._tag)
-            .use(this._value);
+        return new SynchronizedMessage()
+            .useIdentifier(this.mask, this.tag)
+            .useShareMode(this.shareMode)
+            .useValue(this.value);
     }
 
     /**
      * Send this message to message service
      */
-    public send(): Promise<AsynchronizedMessage> {
+    public async send(): Promise<AsynchronizedMessage> {
         return MessageQueue.send(this) as Promise<AsynchronizedMessage>;
     }
 }
@@ -197,14 +170,14 @@ export class AsynchronizedMessage extends Message {
  * Shared message
  */
 export class SharedMessage extends Message {
-    public constructor(id?: string) {
-        super(false, true, id);
+    public constructor() {
+        super(false, true);
     }
 
     /**
      * Send this message to message service
      */
-    public send(): Promise<AsynchronizedMessage> {
-        return MessageQueue.send(this) as Promise<AsynchronizedMessage>;
+    public async send(): Promise<void> {
+        await MessageQueue.send(this);
     }
 }

@@ -58,7 +58,7 @@ export class MemoryCache {
             .for(this._config.action.mask)
             .listen(CacheShareTag)
             .receiver(message => {
-                if (!message.isCrossShare) { return message; }
+                if (!message.isFromCrossShare) { return message; }
                 const data: IMemoryCacheMessage = message.value;
                 this.set(data.path, data.new, true, false);
                 return message;
@@ -71,8 +71,6 @@ export class MemoryCache {
     public static get config(): IMemoryCacheConfig {
         return this._config;
     }
-
-    private constructor() { }
 
     /**
      * Register injector
@@ -116,14 +114,13 @@ export class MemoryCache {
         }
         node.value = value;
         MessageQueue.asyncMessage
-            .mark(this._config.action.mask, this._config.action.tag)
-            .use<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
-            .noShare()
+            .useIdentifier(this._config.action.mask, this._config.action.tag)
+            .useValue<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
             .send();
         if (share) {
             MessageQueue.asyncMessage
-                .mark(this._config.action.mask, CacheShareTag)
-                .use<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
+                .useIdentifier(this._config.action.mask, CacheShareTag)
+                .useValue<IMemoryCacheMessage>({ path: path, old: oldValue, new: value })
                 .send();
         }
     }
@@ -142,11 +139,13 @@ export class MemoryCache {
     public static restore(data: ISerializableNode): void {
         this.store = SerializableNode.deserialize(data);
         MessageQueue.asyncMessage
-            .mark(this._config.action.mask, this._config.action.restoreTag)
-            .use<SerializableNode>(this.store)
-            .noShare()
+            .useIdentifier(this._config.action.mask, this._config.action.restoreTag)
+            .useValue<SerializableNode>(this.store)
+            .enableShare()
             .send();
     }
+
+    private constructor() { }
 }
 
 MemoryCache.initialize();
