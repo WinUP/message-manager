@@ -1,4 +1,5 @@
-import { ReflectorName } from './ListenerComponent';
+import { defineRegisters, AutoRegisterType } from './define-registers';
+import { ListenerReceiver } from '../message';
 
 /**
  * Message listener parameters
@@ -18,19 +19,17 @@ export interface IMessageListenerDefinition {
     priority?: number;
 }
 
+type ListenerReceiverSignature<T> = T extends any ? TypedPropertyDescriptor<(...args: Parameters<ListenerReceiver>) => T> : never;
+
 /**
  * Message listener
  * @param input Parameters
  */
 export function MessageListener(input: IMessageListenerDefinition) {
-    return function (target: object, propertyKey: string, descriptor: PropertyDescriptor) {
-        const component: any = target;
-        if (!Object.getOwnPropertyNames(component).includes(ReflectorName)) {
-            Object.defineProperty(target, ReflectorName, { value: [], enumerable: true, configurable: true });
-        }
-        component[ReflectorName].push({
+    return (target: object, propertyKey: string | symbol, _descriptor: ListenerReceiverSignature<ReturnType<ListenerReceiver>>): void => {
+        defineRegisters(target).push({
             target: propertyKey,
-            type: 'MessageListener',
+            type: AutoRegisterType.MessageListener,
             params: [
                 input.mask,
                 input.priority,

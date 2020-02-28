@@ -34,6 +34,11 @@ export class SerializableNode {
     }
 
     private static _dropByAddress(root: SerializableNode, address: string): void {
+        if (address === '/') {
+            root._children = [];
+            root.value = undefined;
+            return;
+        }
         const hierarchy = address.split('/').slice(1);
         let pointer: SerializableNode = root;
         let parent: SerializableNode = pointer;
@@ -89,7 +94,7 @@ export class SerializableNode {
         return this._children;
     }
 
-    public value: any;
+    public value?: any;
     private _key: string;
     private _children: SerializableNode[] = [];
 
@@ -98,7 +103,7 @@ export class SerializableNode {
      * @param key Node's key
      * @param value Node's initial value
      */
-    public constructor(key: string, value: any) {
+    public constructor(key: string, value?: any) {
         this._key = key;
         this.value = value;
     }
@@ -111,7 +116,7 @@ export class SerializableNode {
      * Nodes throw address will be created automatically.
      */
     public set(address: string, value: any): SerializableNode {
-        const node = this.find(address);
+        const node = this.create(address);
         node.value = value;
         return node;
     }
@@ -123,7 +128,7 @@ export class SerializableNode {
      * Nodes throw address will be created automatically.
      */
     public get<U = any>(address: string): U {
-        return this.find(address).value;
+        return this.create(address).value;
     }
 
     /**
@@ -133,7 +138,6 @@ export class SerializableNode {
      */
     public drop(node: SerializableNode | string): void {
         if (typeof node === 'string') {
-            if (node === '/') { return; }
             SerializableNode._dropByAddress(this, node);
         } else {
             if (this === node) { return; }
@@ -142,8 +146,8 @@ export class SerializableNode {
     }
 
     /**
-     * Find node's address starts from given root
-     * @param root Root node
+     * Find node's address starts from current node. If given node it not child or
+     * relative child of this node, function will return `undefined`.
      * @param node Target node
      */
     public address(node: SerializableNode): string | undefined {
@@ -155,7 +159,7 @@ export class SerializableNode {
      * @param root Root node
      * @param address Target address
      */
-    public find(address: string): SerializableNode {
+    public create(address: string): SerializableNode {
         if (address === '/') { return this; }
         const hierarchy = address.split('/').slice(1);
         let pointer: SerializableNode = this;

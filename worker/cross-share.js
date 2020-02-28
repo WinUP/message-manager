@@ -1,1 +1,0 @@
-var o=[];onconnect=function(e){var p=e.ports[0];o.push(p);p.onmessage=function(d){for(var i=0;i<o.length;i++)o[i].postMessage(d.data)}}

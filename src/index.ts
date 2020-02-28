@@ -1,6 +1,8 @@
 /// <reference path="./declaration.d.ts" />
+import 'reflect-extension';
 
-export * from './resource-manager/index';
-export * from './memory-cache/index';
-export * from './message/index';
-export * from './base/index';
+export * from './resource-manager';
+export * from './memory-cache';
+export * from './message';
+export * from './utils';
+export * from './base';

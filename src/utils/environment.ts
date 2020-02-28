@@ -1,3 +1,5 @@
+/// <reference path="declaration.d.ts" />
+
 import * as UA from 'ua-device';
 
 /**

@@ -6,9 +6,8 @@
   "types": "dist/index.d.ts",
   "private": false,
   "scripts": {
-    "prestart": "tsc",
-    "tsc": "tsc",
-    "test": "node test.js"
+    "test": "jasmine-ts --config=jasmine.json",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -21,16 +20,18 @@
   },
   "homepage": "https://github.com/WinUP/dlcs-core#readme",
   "dependencies": {
-    "@dlcs/tools": "^1.2.2",
-    "lodash": "^4.17.15",
+    "reflect-extension": "^1.0.4",
     "ua-device": "^0.1.10",
     "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.109",
-    "@types/node": "^12.12.21",
-    "@types/react": "^16.9.17",
+    "@types/jasmine": "^3.5.4",
+    "@types/node": "^12.12.27",
     "@types/uuid": "^3.4.6",
+    "jasmine": "^3.5.0",
+    "jasmine-spec-reporter": "^4.2.1",
+    "jasmine-ts": "^0.3.0",
+    "ts-node": "^8.6.2",
     "tslint": "^5.20.1",
     "typescript": "^3.7.3"
   },

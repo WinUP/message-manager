@@ -1,11 +1,9 @@
 import { v4 } from 'uuid';
 
-import { IMessageMetadata } from './MessageMetadata';
 import { MessageQueue } from './message-queue';
-import { ShareMode } from './share-mode';
 
 /**
- * Message
+ * Message contains unique ID, mask, tag and data that working with message queue
  */
 export abstract class Message {
     /**
@@ -16,35 +14,9 @@ export abstract class Message {
     }
 
     /**
-     * Indicate if this message is synchronized
-     */
-    public get isFromCrossShare(): boolean {
-        return this._fromCrossShare;
-    }
-
-    /**
-     * Get message's metadata
-     */
-    public get metadata(): IMessageMetadata {
-        return {
-            id: this.id,
-            sync: this._synchronized,
-            mask: this.mask,
-            tag: this.tag,
-            value: this.value,
-            mode: this.shareMode
-        };
-    }
-
-    /**
      * Get message's unique ID
      */
     public readonly id: string;
-
-    /**
-     * Share mode decides the way that message queue share this message to other instances of the application in same environment
-     */
-    public shareMode: ShareMode = ShareMode.Disabled;
 
     /**
      * Message's mask
@@ -62,35 +34,16 @@ export abstract class Message {
      * Message's content
      */
     public value: any;
-    protected _fromCrossShare: boolean = false;
     protected _synchronized: boolean = false;
 
     /**
-     * Create a new message from target message service
+     * Create a new empty message structure
      * @param synchronized Is synchronized message
-     * @param fromCrossShare Is cross share message
+     * @param id Message's ID
      */
-    protected constructor(synchronized: boolean, fromCrossShare: boolean) {
+    protected constructor(synchronized: boolean, id?: string) {
         this._synchronized = synchronized;
-        this._fromCrossShare = fromCrossShare;
-        this.id = v4();
-    }
-
-    /**
-     * Turn message's share mode to `ShareMode.Disabled`
-     */
-    public disableShare(): this {
-        this.shareMode = ShareMode.Disabled;
-        return this;
-    }
-
-    /**
-     * Set message's share mode
-     * @param mode Destination share mode
-     */
-    public useShareMode(mode: ShareMode): this {
-        this.shareMode = mode;
-        return this;
+        this.id = id ?? v4();
     }
 
     /**
@@ -108,7 +61,7 @@ export abstract class Message {
      * Set message's content
      * @param value Content
      */
-    public useValue<T>(value: T): this {
+    public useValue<T = any>(value: T): this {
         this.value = value;
         return this;
     }
@@ -118,17 +71,32 @@ export abstract class Message {
  * Synchronized message
  */
 export class SynchronizedMessage extends Message {
-    public constructor() {
-        super(true, false);
+    /**
+     * Create a new empty synchronized message
+     */
+    public static empty(): SynchronizedMessage {
+        return new SynchronizedMessage();
+    }
+
+    /**
+     * Create a new synchronized message that contains given value
+     * @param value Target value
+     */
+    public static from<T = any>(value: T): SynchronizedMessage {
+        return new SynchronizedMessage().useValue(value);
+    }
+
+    private constructor() {
+        super(true);
     }
 
     /**
      * Copy this message as asynchronized message
      */
     public toAsynchronized(): AsynchronizedMessage {
-        return new AsynchronizedMessage()
+        return AsynchronizedMessage
+            .empty()
             .useIdentifier(this.mask, this.tag)
-            .useShareMode(this.shareMode)
             .useValue(this.value);
     }
 
@@ -144,17 +112,32 @@ export class SynchronizedMessage extends Message {
  * Asynchronized message
  */
 export class AsynchronizedMessage extends Message {
-    public constructor() {
-        super(false, false);
+    /**
+     * Create a new empty asynchronized message
+     */
+    public static empty(): AsynchronizedMessage {
+        return new AsynchronizedMessage();
+    }
+
+    /**
+     * Create a new asynchronized message that contains given value
+     * @param value Target value
+     */
+    public static from<T = any>(value: T): AsynchronizedMessage {
+        return new AsynchronizedMessage().useValue(value);
+    }
+
+    private constructor() {
+        super(false);
     }
 
     /**
      * Copy this message as synchronized message
      */
     public toSynchronized(): SynchronizedMessage {
-        return new SynchronizedMessage()
+        return SynchronizedMessage
+            .empty()
             .useIdentifier(this.mask, this.tag)
-            .useShareMode(this.shareMode)
             .useValue(this.value);
     }
 
@@ -163,21 +146,5 @@ export class AsynchronizedMessage extends Message {
      */
     public async send(): Promise<AsynchronizedMessage> {
         return MessageQueue.send(this) as Promise<AsynchronizedMessage>;
-    }
-}
-
-/**
- * Shared message
- */
-export class SharedMessage extends Message {
-    public constructor() {
-        super(false, true);
-    }
-
-    /**
-     * Send this message to message service
-     */
-    public async send(): Promise<void> {
-        await MessageQueue.send(this);
     }
 }

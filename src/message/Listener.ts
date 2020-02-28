@@ -1,19 +1,95 @@
-import { callStack, AdvancedTree, uuid } from '@dlcs/tools';
-import { Observable } from 'rxjs';
+import { v4 } from 'uuid';
 
+import { callStack, AdvancedTree } from '../utils';
 import { MessageQueue } from './message-queue';
-import { Message } from './Message';
+import { Message } from './messages';
+
+export type ListenerReceiver = (message: Message) => Promise<Message> | Promise<void> | void | Message;
 
 /**
  * Message listener
  */
 export class Listener {
+    /**
+     * Create a new persistent listener for given mask ans tags
+     * @param mask Listener's mask
+     * @param tags Listener's tags
+     */
+    public static on(mask: number, ...tags: string[]): Listener {
+        return new Listener().useMask(mask).useTag(...tags).asPersistence();
+    }
+
+    /**
+     * Create a new temporary listener for given mask ans tags
+     * @param mask Listener's mask
+     * @param tags Listener's tags
+     */
+    public static once(mask: number, ...tags: string[]): Listener {
+        return new Listener().useMask(mask).useTag(...tags).asOnce();
+    }
+
+    /**
+     * Get listener's ID
+     */
+    public get id(): string {
+        return this._id;
+    }
+
+    /**
+     * Listener's mask
+     * @default 0
+     */
+    public get mask(): number {
+        return this._mask;
+    } public set mask(value: number) {
+        this.useMask(value);
+    }
+
+    /**
+     * Indicate if listener can only run once
+     * @default false
+     */
+    public get onlyOnce(): boolean {
+        return this._onlyOnce;
+    } public set onlyOnce(value: boolean) {
+        value ? this.asOnce() : this.asPersistence();
+    }
+
+    /**
+     * Listener node's priority
+     * @default 0
+     */
+    public get priority(): number {
+        return this._priority;
+    } public set priority(value: number) {
+        this.usePriority(value);
+    }
+
+    /**
+     * Listener's tags
+     */
+    public get tags(): ReadonlySet<string> {
+        return this._tags;
+    }
+
+    /**
+     * Enabled of listener node
+     */
+    public get enabled(): boolean {
+        return this._enabled;
+    } public set enabled(value: boolean) {
+        this._enabled = value;
+        this._node && (this._node.enabled = value);
+    }
+
     private _id: string;
-    private _tag: string[] = [];
+    private _tags: Set<string> = new Set();
     private _mask: number = 0;
     private _priority: number = 0;
-    private _disposable: boolean = false;
-    private _receiver: ((message: Message) => Message | Observable<Message> | Promise<Message>) | null = null;
+    private _onlyOnce: boolean = false;
+    private _receiver: ListenerReceiver | undefined;
+    private _node: AdvancedTree<this> | undefined;
+    private _enabled: boolean = true;
 
     /**
      * Create a new listener
@@ -25,46 +101,15 @@ export class Listener {
         } else {
             const stack = callStack();
             const name = stack && stack.length > 1 ? stack[2].identifiers[0] : '';
-            this._id = `[${name}]${uuid()}`;
+            this._id = `[${name}]${v4()}`;
         }
-    }
-
-    /**
-     * Get listener's ID
-     */
-    public get id(): string {
-        return this._id;
-    }
-
-    /**
-     * Get listener's mask
-     * @default 0
-     */
-    public get mask(): number {
-        return this._mask;
-    }
-
-    /**
-     * Indicate if listener is disposable
-     * @default false
-     */
-    public get disposable(): boolean {
-        return this._disposable;
-    }
-
-    /**
-     * Get listener's priority
-     * @default 0
-     */
-    public get priority(): number {
-        return this._priority;
     }
 
     /**
      * Set listener's mask
      * @param mask Mask
      */
-    public for(mask: number): this {
+    public useMask(mask: number): this {
         this._mask = mask;
         return this;
     }
@@ -73,18 +118,16 @@ export class Listener {
      * Listen target tag
      * @param tag Message tag
      */
-    public listen(tag: string): this {
-        if (this._tag.indexOf(tag) < 0) {
-            this._tag.push(tag);
-        }
+    public useTag(...tag: string[]): this {
+        tag.forEach(e => this._tags.add(e));
         return this;
     }
 
     /**
      * Listener all tags under final mask
      */
-    public listenAll(): this {
-        this._tag = [];
+    public useAllTags(): this {
+        this._tags.clear();
         return this;
     }
 
@@ -92,8 +135,9 @@ export class Listener {
      * Set listener's priority
      * @param priority Priority
      */
-    public hasPriority(priority: number): this {
+    public usePriority(priority: number): this {
         this._priority = priority;
+        this._node && (this._node.priority = priority);
         return this;
     }
 
@@ -102,23 +146,23 @@ export class Listener {
      * @param mask Message mask
      * @param tag Message tag
      */
-    public isAvailableFor(mask: number, tag?: string): boolean {
-        return (this._mask & mask) !== 0 && (this._tag.length === 0 || !tag || this._tag.indexOf(tag) > -1);
+    public canParse(mask: number, tag?: string): boolean {
+        return (this._mask & mask) !== 0 && (this._tags.size === 0 || !tag || this._tags.has(tag));
     }
 
     /**
-     * Set listener as disposable
+     * Only run listener once then destroy itself
      */
-    public asDisposable(): this {
-        this._disposable = true;
+    public asOnce(): this {
+        this._onlyOnce = true;
         return this;
     }
 
     /**
-     * Set listener as undisposable
+     * Always run listener until got destroyed
      */
-    public asUndisposable(): this {
-        this._disposable = false;
+    public asPersistence(): this {
+        this._onlyOnce = false;
         return this;
     }
 
@@ -126,7 +170,7 @@ export class Listener {
      * Set listener's receiver function
      * @param target Receiver function
      */
-    public receiver(target: (message: Message) => Message | Observable<Message> | Promise<Message>): this {
+    public useReceiver(target: ListenerReceiver): this {
         this._receiver = target;
         return this;
     }
@@ -135,15 +179,31 @@ export class Listener {
      * Parse a message
      * @param message Target message
      */
-    public parse(message: Message): Message | Observable<Message> | Promise<Message> {
-        return this._receiver ? this._receiver(message) : message;
+    public parse(message: Message): Message | Promise<Message> {
+        if (this._receiver == null) return message;
+        const result = this._receiver.call(this, message);
+        if (result == null) {
+            return message;
+        } else if (result instanceof Promise) {
+            return (result as Promise<Message | undefined>).then((data?: Message): Message => data == null ? message : data);
+        } else {
+            return result;
+        }
     }
 
     /**
      * Register this listener to message service
      * @param parent Parent listener on message service if have
      */
-    public register(parent?: Listener): AdvancedTree<Listener> {
-        return MessageQueue.receive(this, parent, this._priority);
+    public register(parent?: Listener | AdvancedTree<Listener>): AdvancedTree<Listener> {
+        return MessageQueue.receive(this, parent instanceof Listener ? parent : parent?.content, this._priority);
+    }
+
+    /**
+     * Destroy this listener if registered, otherwise do nothing.
+     */
+    public destroy(): void {
+        this._node?.destroy();
+        this._node = undefined;
     }
 }

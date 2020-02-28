@@ -38,6 +38,13 @@ export class AdvancedTree<T> {
     }
 
     /**
+     * Get children list
+     */
+    public get children(): ReadonlyArray<AdvancedTree<T>> {
+        return this._children;
+    }
+
+    /**
      * Get ID
      */
     public get id(): string | undefined {
@@ -59,7 +66,7 @@ export class AdvancedTree<T> {
     private _next: AdvancedTree<T> | undefined;
     private _previous: AdvancedTree<T> | undefined;
     private _parent: AdvancedTree<T> | undefined;
-    private children: Array<AdvancedTree<T>> = new Array<AdvancedTree<T>>();
+    private _children: AdvancedTree<T>[] = [];
 
     public constructor(content?: T, id?: string) {
         this.content = content;
@@ -70,7 +77,9 @@ export class AdvancedTree<T> {
      * Delete this node with all its children
      */
     public destroy(): void {
-        this.children.forEach(node => node.destroy());
+        while (this._children.length > 0) {
+            this._children[0].destroy();
+        }
         this.setParent(undefined);
     }
 
@@ -83,7 +92,7 @@ export class AdvancedTree<T> {
     public some(callbackfn: (node: AdvancedTree<T>) => boolean): boolean {
         return this.reduce<boolean>((node, result, token) => {
             if (callbackfn(node)) {
-                token.cancelled = true;
+                token.cancel();
                 return true;
             }
             return result;
@@ -99,7 +108,7 @@ export class AdvancedTree<T> {
     public every(callbackfn: (node: AdvancedTree<T>) => boolean): boolean {
         return this.reduce<boolean>((node, result, token) => {
             if (!callbackfn(node)) {
-                token.cancelled = true;
+                token.cancel();
                 return false;
             }
             return result;
@@ -112,10 +121,18 @@ export class AdvancedTree<T> {
      * predicate returns true. If such an element is found, find immediately returns that element value.
      * Otherwise, find returns undefined.
      */
+    public find(predicate: (node: AdvancedTree<T>) => boolean): AdvancedTree<T> | undefined;
+    /**
+     * Returns the value of the first element in the tree where predicate is true, and undefined otherwise.
+     * @param predicate find calls predicate once for each element of the tree until it finds one where
+     * predicate returns true. If such an element is found, find immediately returns that element value.
+     * Otherwise, find returns undefined.
+     */
+    public find<S extends T = T>(predicate: (node: AdvancedTree<T>) => node is AdvancedTree<S>): AdvancedTree<S> | undefined;
     public find<S extends T = T>(predicate: (node: AdvancedTree<T>) => node is AdvancedTree<S>): AdvancedTree<S> | undefined {
         return this.reduce<AdvancedTree<S> | undefined>((node, result, token) => {
             if (predicate(node)) {
-                token.cancelled = true;
+                token.cancel();
                 return node;
             }
             return result;
@@ -128,6 +145,14 @@ export class AdvancedTree<T> {
      * predicate returns true to an array. After checked all elements findAll will return that array.
      * If no element can pass the predicate, findAll returns empty array.
      */
+    public findAll(predicate: (node: AdvancedTree<T>) => boolean): AdvancedTree<T>[];
+    /**
+     * Returns all values in the tree where predicate is true, and empty array otherwise.
+     * @param predicate findAll calls predicate once for each element of the tree and put all elements that
+     * predicate returns true to an array. After checked all elements findAll will return that array.
+     * If no element can pass the predicate, findAll returns empty array.
+     */
+    public findAll<S extends T = T>(predicate: (node: AdvancedTree<T>) => node is AdvancedTree<S>): AdvancedTree<S>[];
     public findAll<S extends T = T>(predicate: (node: AdvancedTree<T>) => node is AdvancedTree<S>): AdvancedTree<S>[] {
         return this.reduce<AdvancedTree<S>[]>((node, result) => {
             predicate(node) && result.push(node);
@@ -155,14 +180,14 @@ export class AdvancedTree<T> {
         const walkStack: Array<AdvancedTree<T>> = new Array<AdvancedTree<T>>();
         let listPointer: AdvancedTree<T> = this; // 将指针指向当前节点
         walkStack.push(listPointer); // 放入当前节点
-        const feedback: CancelToken = { cancelled: false }; // 声明强制中断变量
+        const feedback: CancelToken = new CancelToken(); // 声明强制中断变量
         while (walkStack.length > 0) { // 只要栈内有值便继续处理
             result = callbackfn(listPointer, result, feedback); // 处理指针指向的节点
             if (feedback.cancelled) return result; // 如果处理函数要求强制中断，则立即中断遍历
             // 以下部分均是为了找到下一个需要处理的节点
-            if (listPointer.children.length > 0) { // 优先处理节点的子节点
+            if (listPointer._children.length > 0) { // 优先处理节点的子节点
                 walkStack.push(listPointer); // 放入当前节点
-                listPointer = listPointer.children[0]; // 从第一个节点开始处理
+                listPointer = listPointer._children[0]; // 从第一个节点开始处理
                 while (!listPointer.enabled) { // 跳过所有无效节点
                     while (!listPointer.next) { // 如果当前节点组已经处理完，则返回父节点所在的节点组
                         while (walkStack.length > 0) {
@@ -206,13 +231,13 @@ export class AdvancedTree<T> {
      */
     public print(indent: number = 0): void {
         let title: string = '';
-        title += this.children.length > 0 ? '- ' : '  ';
-        title += `${this._id ?? '<anonymous>'} enabled: ${this.enabled}, priority: ${this._priority}, children: ${this.children.length}`;
+        title += this._children.length > 0 ? '- ' : '  ';
+        title += `${this._id ?? '<anonymous>'} enabled: ${this.enabled}, priority: ${this._priority}, children: ${this._children.length}`;
         for (let i = 0; i < indent; i++) {
             title = ` ${title}`;
         }
         console.log(title);
-        this.children.forEach(e => e.print(indent + 2));
+        this._children.forEach(e => e.print(indent + 2));
     }
 
     private setPriority(value: number): void {
@@ -224,8 +249,8 @@ export class AdvancedTree<T> {
 
     private setParent(parent?: AdvancedTree<T>): void {
         if (this._parent != null) {
-            const index = this._parent.children.findIndex(v => v === this);
-            this._parent.children.splice(index, 1);
+            const index = this._parent._children.findIndex(v => v === this);
+            this._parent._children.splice(index, 1);
             if (this._previous) {
                 this._previous._next = this._next;
             }
@@ -237,20 +262,20 @@ export class AdvancedTree<T> {
         }
         this._parent = parent;
         if (this._parent == null) {
-        } else if (this._parent.children.length === 0) {
-            this._parent.children.push(this);
+        } else if (this._parent._children.length === 0) {
+            this._parent._children.push(this);
         } else {
-            for (let i = 0; i < this._parent.children.length; i++) {
-                if (this._priority >= this._parent.children[i]._priority) {
-                    this._parent.children.splice(i, 0, this);
-                    this._next = this._parent.children[i + 1];
-                    this._previous = this._parent.children[i - 1];
+            for (let i = 0; i < this._parent._children.length; i++) {
+                if (this._priority >= this._parent._children[i]._priority) {
+                    this._parent._children.splice(i, 0, this);
+                    this._next = this._parent._children[i + 1];
+                    this._previous = this._parent._children[i - 1];
                     break;
                 }
-                if (i === this._parent.children.length - 1) {
-                    this._parent.children.push(this);
+                if (i === this._parent._children.length - 1) {
+                    this._parent._children.push(this);
                     this._next = undefined;
-                    this._previous = this._parent.children[i];
+                    this._previous = this._parent._children[i];
                     break;
                 }
             }

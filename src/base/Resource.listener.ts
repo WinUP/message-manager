@@ -1,4 +1,5 @@
-import { ReflectorName } from './ListenerComponent';
+import { defineRegisters, AutoRegisterType, ValueIndicator } from './define-registers';
+import { ResourceResponse } from '../resource-manager';
 
 /**
  * Resource listener parameters
@@ -7,11 +8,11 @@ export interface IResourceListenerDefinition {
     /**
      * Resource's address
      */
-    address?: string | RegExp;
+    address?: ValueIndicator<string>;
     /**
      * Resource's tag
      */
-    tags?: (string | RegExp)[];
+    tags?: ValueIndicator<string>[];
     /**
      * Extra parameters
      */
@@ -22,15 +23,11 @@ export interface IResourceListenerDefinition {
  * Resource listener
  * @param input Parameters
  */
-export function ResourceListener(input: IResourceListenerDefinition) {
-    return function (target: object, propertyKey: string, descriptor: PropertyDescriptor) {
-        const component: any = target;
-        if (!Object.getOwnPropertyNames(component).includes(ReflectorName)) {
-            Object.defineProperty(target, ReflectorName, { value: [], enumerable: true, configurable: true });
-        }
-        component[ReflectorName].push({
+export function ResourceListener<T = any>(input: IResourceListenerDefinition) {
+    return function (target: object, propertyKey: string, _descriptor: TypedPropertyDescriptor<(response: ResourceResponse<T>) => void>) {
+        defineRegisters(target).push({
             target: propertyKey,
-            type: 'ResourceListener',
+            type: AutoRegisterType.ResourceListener,
             params: [
                 input.address,
                 input.tags,
