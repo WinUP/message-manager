@@ -1,4 +1,4 @@
-import { ResourceRequest } from './resource-request';
+import type { ResourceRequest } from './resource-request';
 import { ResponseStatus } from './response-status';
 
 export class ResourceResponse<T> {

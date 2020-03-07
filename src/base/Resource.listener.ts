@@ -1,5 +1,6 @@
-import { defineRegisters, AutoRegisterType, ValueIndicator } from './define-registers';
-import { ResourceResponse } from '../resource-manager';
+import type { ResourceResponse } from '../resource-manager';
+import type { ValueIndicator } from './define-registers';
+import { defineRegisters, AutoRegisterType } from './define-registers';
 
 /**
  * Resource listener parameters
@@ -22,6 +23,7 @@ export interface IResourceListenerDefinition {
 /**
  * Resource listener
  * @param input Parameters
+ * @description Must not use on static function
  */
 export function ResourceListener<T = any>(input: IResourceListenerDefinition) {
     return function (target: object, propertyKey: string, _descriptor: TypedPropertyDescriptor<(response: ResourceResponse<T>) => void>) {

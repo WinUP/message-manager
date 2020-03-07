@@ -1,13 +1,13 @@
 {
-  "name": "@dlcs/core",
-  "version": "2.0.0",
-  "description": "Core module for Deus Legem Creation System",
+  "name": "@ekifvk/message-manager",
+  "version": "1.0.0",
+  "description": "Message queue and resource management for single page application",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "private": false,
   "scripts": {
-    "test": "jasmine-ts --config=jasmine.json",
-    "build": "tsc"
+    "test": "jasmine --config=jasmine.json",
+    "build": "tsc --project tsconfig.app.json"
   },
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
     "jasmine-ts": "^0.3.0",
     "ts-node": "^8.6.2",
     "tslint": "^5.20.1",
-    "typescript": "^3.7.3"
+    "typescript": "^3.8.3"
   },
   "publishConfig": {
     "access": "public"

@@ -7,6 +7,10 @@ describe('MemoryCache', () => {
         MemoryCache.clear();
     });
 
+    afterEach(() => {
+        MessageQueue.destroyAllListeners();
+    })
+
     it('should store correct data', (done) => {
         const path = '/User/MainRecord/Username';
         expect(MemoryCache.has(path)).toBeFalse();

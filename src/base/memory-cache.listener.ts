@@ -1,5 +1,6 @@
-import { defineRegisters, AutoRegisterType, ValueIndicator } from './define-registers';
-import { IMemoryCacheMessage } from '../memory-cache';
+import type { IMemoryCacheMessage } from '../memory-cache';
+import type { ValueIndicator } from './define-registers';
+import { defineRegisters, AutoRegisterType } from './define-registers';
 
 /**
  * State listener parameters
@@ -14,6 +15,7 @@ export interface ICacheListenerDefinition {
 /**
  * State listener
  * @param input Parameters
+ * @description Must not use on static function
  */
 export function MemoryCacheListener(input: ICacheListenerDefinition) {
     return (target: object, propertyKey: string | symbol, _descriptor: TypedPropertyDescriptor<(entry: IMemoryCacheMessage) => void>): void => {

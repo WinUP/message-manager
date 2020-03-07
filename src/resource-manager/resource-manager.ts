@@ -1,8 +1,8 @@
+import type { ResourceProtocol } from './resource-protocol';
+import type { ResourceRequest } from './resource-request';
 import { AsynchronizedMessage } from '../message';
 import { InjectorTimepoint } from './injector-timepoint';
-import { ResourceProtocol } from './resource-protocol';
 import { ResourceResponse } from './resource-response';
-import { ResourceRequest } from './resource-request';
 import { ResponseStatus } from './response-status';
 import { RequestMode } from './request-mode';
 
@@ -48,10 +48,11 @@ export namespace ResourceManager {
      * @param request Resource request
      * @param mode Request mode
      */
-    export function send<T>(request: ResourceRequest, mode?: RequestMode.ViaMessageService): void;
+    export function send<T>(request: ResourceRequest, mode?: RequestMode.ViaMessageService): Promise<AsynchronizedMessage>;
     export function send<T>(request: ResourceRequest, mode: RequestMode.Asynchronized): Promise<ResourceResponse<T>>;
     export function send<T>(request: ResourceRequest, mode: RequestMode.Synchronized): ResourceResponse<T>;
-    export function send<T>(request: ResourceRequest, mode: RequestMode = RequestMode.ViaMessageService): void | ResourceResponse<T> | Promise<ResourceResponse<T>> {
+    // Do not convert to async function, will break logic
+    export function send<T>(request: ResourceRequest, mode: RequestMode = RequestMode.ViaMessageService): void | Promise<AsynchronizedMessage> | ResourceResponse<T> | Promise<ResourceResponse<T>> {
         if (!request.provider) {
             throw new TypeError('Cannot send request: Should set provider/protocol/address first');
         }
@@ -95,9 +96,9 @@ export namespace ResourceManager {
             if (mode === RequestMode.Asynchronized) {
                 return promise;
             } else {
-                promise.then(e => {
+                return promise.then<AsynchronizedMessage>(e => {
                     response = e;
-                    AsynchronizedMessage
+                    return AsynchronizedMessage
                         .from(response)
                         .useIdentifier(config.response.mask, config.response.tag)
                         .send();

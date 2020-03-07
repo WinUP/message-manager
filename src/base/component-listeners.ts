@@ -1,7 +1,10 @@
-import { IAutoRegister, getRegisters, AutoRegisterType, ValueIndicator } from './define-registers';
-import { ResourceResponse, ResourceManager } from '../resource-manager';
-import { IMemoryCacheMessage, MemoryCache } from '../memory-cache';
-import { AdvancedTree } from '../utils';
+import type { IAutoRegister, ValueIndicator } from './define-registers';
+import type { IMemoryCacheMessage } from '../memory-cache';
+import type { ResourceResponse } from '../resource-manager';
+import type { AdvancedTree } from '../utils';
+import { getRegisters, AutoRegisterType } from './define-registers';
+import { ResourceManager } from '../resource-manager';
+import { MemoryCache } from '../memory-cache';
 import { Listener } from '../message';
 
 /**
@@ -18,16 +21,17 @@ export namespace ComponentListeners {
      * @param target Target component
      * @param priority Node listener's priority
      */
-    export function set(target: Object, priority: number = 100): void {
+    export function set(target: Object, priority: number = 0, listenerId: string = Reflect.getConstructorOf(target).name): AdvancedTree<Listener> | undefined {
+        if (target == null) return undefined;
         destroy(target);
-        components.set(target, Listener.on(-1).usePriority(priority).register());
-        const registers: IAutoRegister[] = findRegisters(target.constructor as ClassType<any>);
+        components.set(target, new Listener(listenerId).useMask(-1).usePriority(priority).register());
+        const registers: IAutoRegister[] = findRegisters(target as ClassType<any>);
         for (let i = -1, length = registers.length, item = registers[0]; ++i < length; item = registers[i + 1]) {
             const handler: any = (target as any)[item.target];
             if (item.type === AutoRegisterType.ResourceListener) {
                 onResponse(target, handler, item.params[0], item.params[1], item.params[2]);
             } else if (item.type === AutoRegisterType.MessageListener) {
-                let listener = Listener.on(item.params[0]);
+                let listener = new Listener('OnMessage').useMask(item.params[0]);
                 if (item.params[1] != null) {
                     listener = listener.usePriority(item.params[1]);
                 }
@@ -36,11 +40,12 @@ export namespace ComponentListeners {
                 } else {
                     listener = listener.useAllTags();
                 }
-                onMessage(target, listener.useReceiver(handler));
+                onMessage(target, listener.useReceiver(handler.bind(target)));
             } else if (item.type === AutoRegisterType.MemoryCacheListener) {
                 onMemoryCache(target, handler, item.params[0]);
             }
         }
+        return components.get(target);
     }
 
     /**
@@ -114,7 +119,9 @@ export namespace ComponentListeners {
      */
     export function onResponse<U = any>(target: Object, handler: (data: ResourceResponse<U>) => void, address?: ValueIndicator<string>,
         tags?: ValueIndicator<string>[], params?: { [key: string]: any }): void {
-        onMessage(target, Listener.on(ResourceManager.config.response.mask, ResourceManager.config.response.tag)
+        onMessage(target, new Listener('OnResponse')
+            .useMask(ResourceManager.config.response.mask)
+            .useTag(ResourceManager.config.response.tag)
             .useReceiver(message => {
                 const response: ResourceResponse<any> = message.value;
                 const resourceAddress = `${response.request.protocol}://${response.request.address}`;
@@ -142,8 +149,9 @@ export namespace ComponentListeners {
      * @param path Cache's path
      */
     export function onMemoryCache(target: Object, handler: (data: IMemoryCacheMessage) => void, path?: string | ((path: string) => boolean)): void {
-        onMessage(target, Listener
-            .on(MemoryCache.config.mask, MemoryCache.config.tags.onSet)
+        onMessage(target, new Listener('OnMemoryCache')
+            .useMask(MemoryCache.config.mask)
+            .useTag(MemoryCache.config.tags.onSet)
             .useReceiver(message => {
                 const data: IMemoryCacheMessage = message.value;
                 if ((typeof path === 'string' && path === data.path) || (typeof path === 'function' && path.call(target, data.path))) {

@@ -62,7 +62,7 @@ describe('Listener', () => {
 
     it('should return original message if receiver returns nothing', () => {
         const testMessage1 = SynchronizedMessage.empty();
-        const listener = Listener.on(1).useReceiver(() => {});
+        const listener = Listener.on(1).useReceiver(() => { });
         expect(listener.parse(testMessage1)).toEqual(testMessage1);
     });
 
@@ -80,7 +80,7 @@ describe('Listener', () => {
 
     it('should return original message if receiver returns nothing in asynchronized context', (done) => {
         const testMessage1 = SynchronizedMessage.empty();
-        const listener = Listener.on(1).useReceiver(async () => {});
+        const listener = Listener.on(1).useReceiver(async () => { });
         const result = listener.parse(testMessage1);
         expect(result).toBeInstanceOf(Promise);
         (result as Promise<Message>).then(m => {

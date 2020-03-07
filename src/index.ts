@@ -1,4 +1,3 @@
-/// <reference path="./declaration.d.ts" />
 import 'reflect-extension';
 
 export * from './resource-manager';

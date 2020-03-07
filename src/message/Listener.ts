@@ -1,8 +1,9 @@
 import { v4 } from 'uuid';
 
-import { callStack, AdvancedTree } from '../utils';
+import type { AdvancedTree } from '../utils';
+import type { Message } from './messages';
 import { MessageQueue } from './message-queue';
-import { Message } from './messages';
+import { callStack } from '../utils';
 
 export type ListenerReceiver = (message: Message) => Promise<Message> | Promise<void> | void | Message;
 
@@ -93,15 +94,19 @@ export class Listener {
 
     /**
      * Create a new listener
-     * @param id Listener's ID
+     * @param id Listener's ID, or nothing to use callstack information to generate ID
+     * @param attachUniqueId Should attach another unique ID at the end of given ID
      */
-    public constructor(id?: string) {
+    public constructor(id?: string, attachUniqueId: boolean = true) {
         if (id) {
             this._id = id;
         } else {
             const stack = callStack();
             const name = stack && stack.length > 1 ? stack[2].identifiers[0] : '';
-            this._id = `[${name}]${v4()}`;
+            this._id = name;
+        }
+        if (attachUniqueId) {
+            this._id = `${this._id}[${v4()}]`
         }
     }
 

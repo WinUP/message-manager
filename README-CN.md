@@ -1,11 +1,8 @@
-# DLCS Core Module
+# Message Manager
 
-![status](https://img.shields.io/travis/WinUP/dlcs-core.svg?style=flat-square)
-[![npm](https://img.shields.io/npm/v/@dlcs/core.svg?style=flat-square)](https://www.npmjs.com/package/@dlcs/core)
+[![npm](https://img.shields.io/npm/v/@ekifvk/message-manager.svg?style=flat-square)](https://www.npmjs.com/package/@dlcs/core)
 
-Deus Legem 创作系统核心模块。
-
-[English Version](https://github.com/WinUP/dlcs-core/blob/master/README.md)
+Store, resource and message manager for single page application.
 
 核心模块是一个由诸多服务和快捷方式组成的，以一个模仿Windows消息循环开发的消息队列为中心，为资源和状态管理、数据广播和拦截提供统一解决方案的浏览器兼容JavaScript模块。
 
@@ -24,19 +21,13 @@ Deus Legem 创作系统核心模块。
 * 异步消息拦截，例如路由跳转时弹出是否保存的对话框并等待用户确认
 * 等等
 
-- [DLCS Core Module](#dlcs-core-module)
-    - [MessageQueue (消息队列)](#messagequeue)
-        - [Listener (监听器)](#listener)
-        - [Message (消息)](#message)
-    - [MemoryCache (中央存储库)](#memorycache)
-    - [ResourceManager (资源管理器)](#resourcemanager)
-        - [ResourceProtocol (协议提供方)](#resourceprotocol)
-        - [ResourceRequest (资源请求)](#resourcerequest)
-        - [ResourceResponse<T> (资源回执)](#resourceresponset)
-    - [ListenerComponent<T> （监听器组件）](#listenercomponentt)
-        - [Angular解决方案](#angular)
-        - [React解决方案](#react)
-        - [Component进阶用法](#component)
+- [Message Manager](#message-manager)
+  - [MessageQueue (消息队列)](#messagequeue-%e6%b6%88%e6%81%af%e9%98%9f%e5%88%97)
+    - [Listener (监听器)](#listener-%e7%9b%91%e5%90%ac%e5%99%a8)
+    - [Message (消息)](#message-%e6%b6%88%e6%81%af)
+  - [MemoryCache (中央存储库)](#memorycache-%e4%b8%ad%e5%a4%ae%e5%ad%98%e5%82%a8%e5%ba%93)
+  - [ResourceManager (资源管理器)](#resourcemanager-%e8%b5%84%e6%ba%90%e7%ae%a1%e7%90%86%e5%99%a8)
+    - [ResourceProtocol (协议提供方)](#resourceprotocol-%e5%8d%8f%e8%ae%ae%e6%8f%90%e4%be%9b%e6%96%b9)
 
 *以下内容会包含很多示例代码，其中也有许多链式方法。除非特别提醒，否则它们都不是Immutable方法。*
 

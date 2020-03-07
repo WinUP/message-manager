@@ -6,7 +6,7 @@ export function callStack(): ICallStackItem[] {
     if (!stackInfo) { return []; }
     return stackInfo.split('\n').slice(2).map((v: string): ICallStackItem => {
         if (v.indexOf(':') > 0 && v.indexOf('(') > 0) { // at Module._compile (module.js:660:30)
-            const source = /at ([^\s]+) \((.+):(\d+):(\d+)\)/g.exec(v.trim());
+            const source = /at ([^\(]+) \((.+):(\d+):(\d+)\)/g.exec(v.trim());
             if (!source) { return emptyLine(v); }
             return {
                 identifiers: source[1].split('.'),

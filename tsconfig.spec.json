@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../dist/spec",
+    "strict": false,
+    "types": [
+      "reflect-extension",
+      "jasmine",
+      "node",
+      "uuid"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "test.ts"
+  ]
+}

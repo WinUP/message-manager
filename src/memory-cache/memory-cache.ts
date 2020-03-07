@@ -1,5 +1,6 @@
-import { SerializableNode, ISerializableNode } from '../utils';
+import type { ISerializableNode } from '../utils';
 import { AsynchronizedMessage } from '../message';
+import { SerializableNode } from '../utils';
 
 /**
  * Configurations for MemoryCache
@@ -71,11 +72,11 @@ export namespace MemoryCache {
      * @param key Item key
      * @param value New value
      */
-    export function set<T>(path: string, value: T): void {
+    export function set<T>(path: string, value: T): Promise<AsynchronizedMessage> {
         const node = store.create(path);
         const oldValue = node.value;
         node.value = value;
-        AsynchronizedMessage
+        return AsynchronizedMessage
             .from<IMemoryCacheMessage<any, T>>({ path: path, old: oldValue, new: value })
             .useIdentifier(config.mask, config.tags.onSet)
             .send();
@@ -92,9 +93,9 @@ export namespace MemoryCache {
      * Restore from serialized data
      * @param data Target data
      */
-    export function restore(data: ISerializableNode): void {
+    export function restore(data: ISerializableNode): Promise<AsynchronizedMessage> {
         store = SerializableNode.deserialize(data);
-        AsynchronizedMessage
+        return AsynchronizedMessage
             .from(store)
             .useIdentifier(config.mask, config.tags.onRestore)
             .send();

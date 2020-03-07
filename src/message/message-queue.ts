@@ -1,6 +1,6 @@
+import type { Listener } from './listener';
+import type { Message } from './messages';
 import { AdvancedTree } from '../utils';
-import { Listener } from './listener';
-import { Message } from './messages';
 
 /**
  * Message queue
@@ -27,7 +27,7 @@ export namespace MessageQueue {
      */
     export function send(message: Message): Message | Promise<Message> {
         debugMode && printDebugInformation(message);
-        const deleteQueue: AdvancedTree<Listener>[] = new Array<AdvancedTree<Listener>>();
+        const deleteQueue: AdvancedTree<Listener>[] = [];
         if (message.isSynchronized) {
             const syncResult = root.reduce<Message>((node, result) => {
                 const listener = node.content;
@@ -79,6 +79,16 @@ export namespace MessageQueue {
         targetNode.enabled = listener.enabled;
         (listener as any)._node = targetNode;
         return targetNode;
+    }
+
+    /**
+     * Destroy all listeners that registered to message queue
+     */
+    export function destroyAllListeners(): void {
+        if (root.children.length < 1) return;
+        while (root.children.length > 0) {
+            root.children[0].destroy();
+        }
     }
 
     function printDebugInformation(message: Message): void {

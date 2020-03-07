@@ -1,5 +1,5 @@
+import type { ListenerReceiver } from '../message';
 import { defineRegisters, AutoRegisterType } from './define-registers';
-import { ListenerReceiver } from '../message';
 
 /**
  * Message listener parameters
@@ -24,6 +24,7 @@ type ListenerReceiverSignature<T> = T extends any ? TypedPropertyDescriptor<(...
 /**
  * Message listener
  * @param input Parameters
+ * @description Must not use on static function
  */
 export function MessageListener(input: IMessageListenerDefinition) {
     return (target: object, propertyKey: string | symbol, _descriptor: ListenerReceiverSignature<ReturnType<ListenerReceiver>>): void => {

@@ -1,5 +1,6 @@
-import { ResourceProtocol } from './resource-protocol';
-import { ResourceResponse } from './resource-response';
+import type { AsynchronizedMessage } from '../message';
+import type { ResourceProtocol } from './resource-protocol';
+import type { ResourceResponse } from './resource-response';
 import { ResourceManager } from './resource-manager';
 import { RequestMode } from './request-mode';
 import { RequestType } from './request-type';
@@ -129,8 +130,8 @@ export class ResourceRequest {
     /**
      * Send request to message service
      */
-    public send(): void {
-        ResourceManager.send(this, RequestMode.ViaMessageService);
+    public send(): Promise<AsynchronizedMessage> {
+        return ResourceManager.send(this, RequestMode.ViaMessageService);
     }
 
     /**
