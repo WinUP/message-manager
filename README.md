@@ -1,10 +1,7 @@
 # DLCS Core Module
 
-![status](https://img.shields.io/travis/WinUP/dlcs-core.svg?style=flat-square)
-[![npm](https://img.shields.io/npm/v/@dlcs/core.svg?style=flat-square)](https://www.npmjs.com/package/@dlcs/core)
+![status](https://img.shields.io/github/workflow/status/WinUP/message-manager/Test code?style=flat-square)
+[![npm](https://img.shields.io/npm/v/@ekifvk/message-manager.svg?style=flat-square)](https://www.npmjs.com/package/@ekifvk/message-manager)
 
-Deus Legem Creation System Core Module.
+Store, message and resource manager for single page application.
 
-[中文版](https://github.com/WinUP/dlcs-core/blob/master/README-CN.md)
-
-English version is still under construction.
