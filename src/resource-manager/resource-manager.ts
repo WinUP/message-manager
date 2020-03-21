@@ -52,7 +52,8 @@ export namespace ResourceManager {
     export function send<T>(request: ResourceRequest, mode: RequestMode.Asynchronized): Promise<ResourceResponse<T>>;
     export function send<T>(request: ResourceRequest, mode: RequestMode.Synchronized): ResourceResponse<T>;
     // Do not convert to async function, will break logic
-    export function send<T>(request: ResourceRequest, mode: RequestMode = RequestMode.ViaMessageService): void | Promise<AsynchronizedMessage> | ResourceResponse<T> | Promise<ResourceResponse<T>> {
+    export function send<T>(request: ResourceRequest, mode: RequestMode = RequestMode.ViaMessageService)
+        : void | Promise<AsynchronizedMessage> | ResourceResponse<T> | Promise<ResourceResponse<T>> {
         if (!request.provider) {
             throw new TypeError('Cannot send request: Should set provider/protocol/address first');
         }
