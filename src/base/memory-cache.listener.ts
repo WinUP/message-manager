@@ -1,5 +1,6 @@
-import { ValueIndicator, AutoRegisterType, defineRegisters } from './define-registers';
-import { IMemoryCacheMessage } from '../memory-cache';
+import type { IMemoryCacheMessage } from '../memory-cache';
+import type { ValueIndicator } from './define-registers';
+import { defineRegisters, AutoRegisterType } from './define-registers';
 
 /**
  * State listener parameters

@@ -50,12 +50,7 @@
         "no-bitwise": false,
         "no-construct": true,
         "no-debugger": true,
-        "no-duplicate-imports": [
-            true,
-            {
-                "allow-namespace-imports": true
-            }
-        ],
+        "no-duplicate-imports": false,
         "no-duplicate-variable": true,
         "no-empty": false,
         "no-empty-interface": false,

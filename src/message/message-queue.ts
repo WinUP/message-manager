@@ -1,6 +1,6 @@
+import type { Listener } from './listener';
+import type { Message } from './messages';
 import { AdvancedTree } from '../utils';
-import { Listener } from './listener';
-import { Message } from './messages';
 
 /**
  * Message queue
