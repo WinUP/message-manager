@@ -1,10 +1,7 @@
-import type { IAutoRegister, ValueIndicator } from './define-registers';
-import type { IMemoryCacheMessage } from '../memory-cache';
-import type { ResourceResponse } from '../resource-manager';
-import type { AdvancedTree } from '../utils';
-import { getRegisters, AutoRegisterType } from './define-registers';
-import { ResourceManager } from '../resource-manager';
-import { MemoryCache } from '../memory-cache';
+import { IAutoRegister, ValueIndicator, getRegisters, AutoRegisterType } from './define-registers';
+import { ResourceResponse, ResourceManager } from '../resource-manager';
+import { IMemoryCacheMessage, MemoryCache } from '../memory-cache';
+import { AdvancedTree } from '../utils';
 import { Listener } from '../message';
 
 /**

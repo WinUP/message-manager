@@ -1,9 +1,8 @@
 import { v4 } from 'uuid';
 
-import type { AdvancedTree } from '../utils';
-import type { Message } from './messages';
+import { AdvancedTree, callStack } from '../utils';
 import { MessageQueue } from './message-queue';
-import { callStack } from '../utils';
+import { Message } from './messages';
 
 export type ListenerReceiver = (message: Message) => Promise<Message> | Promise<void> | void | Message;
 

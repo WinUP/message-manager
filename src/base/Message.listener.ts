@@ -1,5 +1,5 @@
-import type { ListenerReceiver } from '../message';
 import { defineRegisters, AutoRegisterType } from './define-registers';
+import { ListenerReceiver } from '../message';
 
 /**
  * Message listener parameters

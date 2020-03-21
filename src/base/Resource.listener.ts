@@ -1,6 +1,5 @@
-import type { ResourceResponse } from '../resource-manager';
-import type { ValueIndicator } from './define-registers';
-import { defineRegisters, AutoRegisterType } from './define-registers';
+import { ValueIndicator, defineRegisters, AutoRegisterType } from './define-registers';
+import { ResourceResponse } from '../resource-manager';
 
 /**
  * Resource listener parameters

@@ -1,8 +1,8 @@
-import type { ResourceProtocol } from './resource-protocol';
-import type { ResourceRequest } from './resource-request';
 import { AsynchronizedMessage } from '../message';
 import { InjectorTimepoint } from './injector-timepoint';
+import { ResourceProtocol } from './resource-protocol';
 import { ResourceResponse } from './resource-response';
+import { ResourceRequest } from './resource-request';
 import { ResponseStatus } from './response-status';
 import { RequestMode } from './request-mode';
 

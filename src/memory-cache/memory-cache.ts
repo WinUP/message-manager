@@ -1,6 +1,5 @@
-import type { ISerializableNode } from '../utils';
+import { ISerializableNode, SerializableNode } from '../utils';
 import { AsynchronizedMessage } from '../message';
-import { SerializableNode } from '../utils';
 
 /**
  * Configurations for MemoryCache

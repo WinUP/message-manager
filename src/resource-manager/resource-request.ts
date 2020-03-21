@@ -1,6 +1,6 @@
-import type { AsynchronizedMessage } from '../message';
-import type { ResourceProtocol } from './resource-protocol';
-import type { ResourceResponse } from './resource-response';
+import { AsynchronizedMessage } from '../message';
+import { ResourceProtocol } from './resource-protocol';
+import { ResourceResponse } from './resource-response';
 import { ResourceManager } from './resource-manager';
 import { RequestMode } from './request-mode';
 import { RequestType } from './request-type';
